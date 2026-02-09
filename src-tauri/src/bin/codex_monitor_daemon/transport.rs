@@ -4,6 +4,108 @@ use super::rpc::{
 };
 use super::*;
 
+fn start_event_forwarding_task(
+    events: &broadcast::Sender<DaemonEvent>,
+    out_tx: mpsc::UnboundedSender<String>,
+) -> tokio::task::JoinHandle<()> {
+    let rx = events.subscribe();
+    tokio::spawn(forward_events(rx, out_tx))
+}
+
+fn handle_rpc_json_message(
+    message: Value,
+    state: &Arc<DaemonState>,
+    events: &broadcast::Sender<DaemonEvent>,
+    expected_token: Option<&str>,
+    out_tx: &mpsc::UnboundedSender<String>,
+    authenticated: &mut bool,
+    events_task: &mut Option<tokio::task::JoinHandle<()>>,
+    client_version: &str,
+    request_limiter: &Arc<Semaphore>,
+) {
+    let id = message.get("id").and_then(|value| value.as_u64());
+    let method = message
+        .get("method")
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+        .to_string();
+    let params = message.get("params").cloned().unwrap_or(Value::Null);
+    if method.is_empty() {
+        return;
+    }
+
+    if !*authenticated {
+        if method != "auth" {
+            if let Some(response) = build_error_response(id, "unauthorized") {
+                let _ = out_tx.send(response);
+            }
+            return;
+        }
+
+        let expected = expected_token.unwrap_or_default();
+        let provided = parse_auth_token(&params).unwrap_or_default();
+        if expected != provided {
+            if let Some(response) = build_error_response(id, "invalid token") {
+                let _ = out_tx.send(response);
+            }
+            return;
+        }
+
+        *authenticated = true;
+        if let Some(response) = build_result_response(id, json!({ "ok": true })) {
+            let _ = out_tx.send(response);
+        }
+        if events_task.is_none() {
+            *events_task = Some(start_event_forwarding_task(events, out_tx.clone()));
+        }
+        return;
+    }
+
+    spawn_rpc_response_task(
+        Arc::clone(state),
+        out_tx.clone(),
+        id,
+        method,
+        params,
+        client_version.to_string(),
+        Arc::clone(request_limiter),
+    );
+}
+
+fn handle_rpc_line(
+    line: &str,
+    state: &Arc<DaemonState>,
+    events: &broadcast::Sender<DaemonEvent>,
+    expected_token: Option<&str>,
+    out_tx: &mpsc::UnboundedSender<String>,
+    authenticated: &mut bool,
+    events_task: &mut Option<tokio::task::JoinHandle<()>>,
+    client_version: &str,
+    request_limiter: &Arc<Semaphore>,
+) {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return;
+    }
+
+    let message: Value = match serde_json::from_str(trimmed) {
+        Ok(value) => value,
+        Err(_) => return,
+    };
+
+    handle_rpc_json_message(
+        message,
+        state,
+        events,
+        expected_token,
+        out_tx,
+        authenticated,
+        events_task,
+        client_version,
+        request_limiter,
+    );
+}
+
 pub(super) async fn handle_client(
     socket: TcpStream,
     config: Arc<DaemonConfig>,
@@ -31,67 +133,20 @@ pub(super) async fn handle_client(
     let client_version = format!("daemon-{}", env!("CARGO_PKG_VERSION"));
 
     if authenticated {
-        let rx = events.subscribe();
-        let out_tx_events = out_tx.clone();
-        events_task = Some(tokio::spawn(forward_events(rx, out_tx_events)));
+        events_task = Some(start_event_forwarding_task(&events, out_tx.clone()));
     }
 
     while let Ok(Some(line)) = lines.next_line().await {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-
-        let message: Value = match serde_json::from_str(line) {
-            Ok(value) => value,
-            Err(_) => continue,
-        };
-
-        let id = message.get("id").and_then(|value| value.as_u64());
-        let method = message
-            .get("method")
-            .and_then(|value| value.as_str())
-            .unwrap_or("")
-            .to_string();
-        let params = message.get("params").cloned().unwrap_or(Value::Null);
-
-        if !authenticated {
-            if method != "auth" {
-                if let Some(response) = build_error_response(id, "unauthorized") {
-                    let _ = out_tx.send(response);
-                }
-                continue;
-            }
-
-            let expected = config.token.clone().unwrap_or_default();
-            let provided = parse_auth_token(&params).unwrap_or_default();
-            if expected != provided {
-                if let Some(response) = build_error_response(id, "invalid token") {
-                    let _ = out_tx.send(response);
-                }
-                continue;
-            }
-
-            authenticated = true;
-            if let Some(response) = build_result_response(id, json!({ "ok": true })) {
-                let _ = out_tx.send(response);
-            }
-
-            let rx = events.subscribe();
-            let out_tx_events = out_tx.clone();
-            events_task = Some(tokio::spawn(forward_events(rx, out_tx_events)));
-
-            continue;
-        }
-
-        spawn_rpc_response_task(
-            Arc::clone(&state),
-            out_tx.clone(),
-            id,
-            method,
-            params,
-            client_version.clone(),
-            Arc::clone(&request_limiter),
+        handle_rpc_line(
+            &line,
+            &state,
+            &events,
+            config.token.as_deref(),
+            &out_tx,
+            &mut authenticated,
+            &mut events_task,
+            &client_version,
+            &request_limiter,
         );
     }
 
@@ -100,6 +155,168 @@ pub(super) async fn handle_client(
         task.abort();
     }
     write_task.abort();
+}
+
+async fn handle_ws_client(
+    socket: TcpStream,
+    config: Arc<DaemonConfig>,
+    state: Arc<DaemonState>,
+    events: broadcast::Sender<DaemonEvent>,
+) {
+    let stream = match tokio_tungstenite::accept_async(socket).await {
+        Ok(stream) => stream,
+        Err(err) => {
+            eprintln!("websocket handshake failed: {err}");
+            return;
+        }
+    };
+
+    let (mut writer, mut reader) = stream.split();
+    let (out_tx, mut out_rx) = mpsc::unbounded_channel::<String>();
+    let write_task = tokio::spawn(async move {
+        while let Some(message) = out_rx.recv().await {
+            if writer.send(Message::Text(message.into())).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    let mut authenticated = config.token.is_none();
+    let mut events_task: Option<tokio::task::JoinHandle<()>> = None;
+    let request_limiter = Arc::new(Semaphore::new(MAX_IN_FLIGHT_RPC_PER_CONNECTION));
+    let client_version = format!("daemon-{}", env!("CARGO_PKG_VERSION"));
+
+    if authenticated {
+        events_task = Some(start_event_forwarding_task(&events, out_tx.clone()));
+    }
+
+    while let Some(frame) = reader.next().await {
+        match frame {
+            Ok(Message::Text(text)) => {
+                for line in text.lines() {
+                    handle_rpc_line(
+                        line,
+                        &state,
+                        &events,
+                        config.token.as_deref(),
+                        &out_tx,
+                        &mut authenticated,
+                        &mut events_task,
+                        &client_version,
+                        &request_limiter,
+                    );
+                }
+            }
+            Ok(Message::Binary(bytes)) => {
+                if let Ok(text) = String::from_utf8(bytes.to_vec()) {
+                    for line in text.lines() {
+                        handle_rpc_line(
+                            line,
+                            &state,
+                            &events,
+                            config.token.as_deref(),
+                            &out_tx,
+                            &mut authenticated,
+                            &mut events_task,
+                            &client_version,
+                            &request_limiter,
+                        );
+                    }
+                }
+            }
+            Ok(Message::Close(_)) => break,
+            Ok(Message::Ping(_)) | Ok(Message::Pong(_)) => {}
+            Ok(Message::Frame(_)) => {}
+            Err(err) => {
+                eprintln!("websocket client error: {err}");
+                break;
+            }
+        }
+    }
+
+    drop(out_tx);
+    if let Some(task) = events_task {
+        task.abort();
+    }
+    write_task.abort();
+}
+
+async fn run_websocket_accept_loop(
+    listener: TcpListener,
+    config: Arc<DaemonConfig>,
+    state: Arc<DaemonState>,
+    events: broadcast::Sender<DaemonEvent>,
+) {
+    loop {
+        match listener.accept().await {
+            Ok((socket, _addr)) => {
+                let config = Arc::clone(&config);
+                let state = Arc::clone(&state);
+                let events = events.clone();
+                tokio::spawn(async move {
+                    handle_ws_client(socket, config, state, events).await;
+                });
+            }
+            Err(_) => continue,
+        }
+    }
+}
+
+pub(super) async fn run_tcp_mode(
+    config: Arc<DaemonConfig>,
+    state: Arc<DaemonState>,
+    events_tx: broadcast::Sender<DaemonEvent>,
+) {
+    let listener = match TcpListener::bind(config.listen).await {
+        Ok(listener) => listener,
+        Err(err) => {
+            eprintln!("failed to bind {}: {err}", config.listen);
+            std::process::exit(2);
+        }
+    };
+    eprintln!(
+        "codex-monitor-daemon listening on {} (data dir: {})",
+        config.listen,
+        state
+            .storage_path
+            .parent()
+            .unwrap_or(&state.storage_path)
+            .display()
+    );
+
+    if let Some(ws_listen) = config.ws_listen {
+        match TcpListener::bind(ws_listen).await {
+            Ok(ws_listener) => {
+                eprintln!("codex-monitor-daemon websocket listening on {}", ws_listen);
+                let ws_config = Arc::clone(&config);
+                let ws_state = Arc::clone(&state);
+                let ws_events = events_tx.clone();
+                tokio::spawn(async move {
+                    run_websocket_accept_loop(ws_listener, ws_config, ws_state, ws_events).await;
+                });
+            }
+            Err(err) => {
+                eprintln!(
+                    "websocket listener disabled; failed to bind {}: {}",
+                    ws_listen, err
+                );
+            }
+        }
+    }
+
+    loop {
+        match listener.accept().await {
+            Ok((socket, _addr)) => {
+                let config = Arc::clone(&config);
+                let state = Arc::clone(&state);
+                let events = events_tx.clone();
+                tokio::spawn(async move {
+                    handle_client(socket, config, state, events).await;
+                });
+            }
+            Err(_) => continue,
+        }
+    }
 }
 
 fn handle_orbit_line(

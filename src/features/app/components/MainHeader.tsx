@@ -36,6 +36,7 @@ type MainHeaderProps = {
   onToggleTerminal: () => void;
   isTerminalOpen: boolean;
   showTerminalButton?: boolean;
+  terminalDisabledReason?: string | null;
   showWorkspaceTools?: boolean;
   extraActionsNode?: ReactNode;
   launchScript?: string | null;
@@ -89,6 +90,7 @@ export function MainHeader({
   onToggleTerminal,
   isTerminalOpen,
   showTerminalButton = true,
+  terminalDisabledReason = null,
   showWorkspaceTools = true,
   extraActionsNode,
   launchScript = null,
@@ -555,9 +557,10 @@ export function MainHeader({
             type="button"
             className={`ghost main-header-action${isTerminalOpen ? " is-active" : ""}`}
             onClick={onToggleTerminal}
+            disabled={Boolean(terminalDisabledReason)}
             data-tauri-drag-region="false"
             aria-label="Toggle terminal panel"
-            title="Terminal"
+            title={terminalDisabledReason ?? "Terminal"}
           >
             <Terminal size={14} aria-hidden />
           </button>

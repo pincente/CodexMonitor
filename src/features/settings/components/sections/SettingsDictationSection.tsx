@@ -16,6 +16,7 @@ type SettingsDictationSectionProps = {
   selectedDictationModel: DictationModelOption;
   dictationModelStatus?: DictationModelStatus | null;
   dictationReady: boolean;
+  controlsDisabledReason?: string | null;
   onUpdateAppSettings: (next: AppSettings) => Promise<void>;
   onDownloadDictationModel?: () => void;
   onCancelDictationDownload?: () => void;
@@ -30,12 +31,14 @@ export function SettingsDictationSection({
   selectedDictationModel,
   dictationModelStatus,
   dictationReady,
+  controlsDisabledReason = null,
   onUpdateAppSettings,
   onDownloadDictationModel,
   onCancelDictationDownload,
   onRemoveDictationModel,
 }: SettingsDictationSectionProps) {
   const dictationProgress = dictationModelStatus?.progress ?? null;
+  const controlsDisabled = Boolean(controlsDisabledReason);
 
   return (
     <section className="settings-section">
@@ -43,6 +46,9 @@ export function SettingsDictationSection({
       <div className="settings-section-subtitle">
         Enable microphone dictation with on-device transcription.
       </div>
+      {controlsDisabledReason && (
+        <div className="settings-help">{controlsDisabledReason}</div>
+      )}
       <div className="settings-toggle-row">
         <div>
           <div className="settings-toggle-title">Enable dictation</div>
@@ -74,7 +80,9 @@ export function SettingsDictationSection({
               onDownloadDictationModel();
             }
           }}
+          disabled={controlsDisabled}
           aria-pressed={appSettings.dictationEnabled}
+          title={controlsDisabled ? controlsDisabledReason ?? undefined : undefined}
         >
           <span className="settings-toggle-knob" />
         </button>
@@ -93,6 +101,8 @@ export function SettingsDictationSection({
               dictationModelId: event.target.value,
             })
           }
+          disabled={controlsDisabled}
+          title={controlsDisabled ? controlsDisabledReason ?? undefined : undefined}
         >
           {dictationModels.map((model) => (
             <option key={model.id} value={model.id}>
@@ -118,6 +128,8 @@ export function SettingsDictationSection({
               dictationPreferredLanguage: event.target.value || null,
             })
           }
+          disabled={controlsDisabled}
+          title={controlsDisabled ? controlsDisabledReason ?? undefined : undefined}
         >
           <option value="">Auto-detect only</option>
           <option value="en">English</option>
@@ -157,6 +169,8 @@ export function SettingsDictationSection({
               dictationHoldKey: event.target.value,
             })
           }
+          disabled={controlsDisabled}
+          title={controlsDisabled ? controlsDisabledReason ?? undefined : undefined}
         >
           <option value="">Off</option>
           <option value="alt">{optionKeyLabel}</option>
@@ -204,7 +218,8 @@ export function SettingsDictationSection({
                 type="button"
                 className="primary"
                 onClick={onDownloadDictationModel}
-                disabled={!onDownloadDictationModel}
+                disabled={controlsDisabled || !onDownloadDictationModel}
+                title={controlsDisabled ? controlsDisabledReason ?? undefined : undefined}
               >
                 Download model
               </button>
@@ -214,7 +229,8 @@ export function SettingsDictationSection({
                 type="button"
                 className="ghost settings-button-compact"
                 onClick={onCancelDictationDownload}
-                disabled={!onCancelDictationDownload}
+                disabled={controlsDisabled || !onCancelDictationDownload}
+                title={controlsDisabled ? controlsDisabledReason ?? undefined : undefined}
               >
                 Cancel download
               </button>
@@ -224,7 +240,8 @@ export function SettingsDictationSection({
                 type="button"
                 className="ghost settings-button-compact"
                 onClick={onRemoveDictationModel}
-                disabled={!onRemoveDictationModel}
+                disabled={controlsDisabled || !onRemoveDictationModel}
+                title={controlsDisabled ? controlsDisabledReason ?? undefined : undefined}
               >
                 Remove model
               </button>

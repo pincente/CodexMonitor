@@ -10,6 +10,8 @@ type SettingsServerSectionProps = {
   appSettings: AppSettings;
   onUpdateAppSettings: (next: AppSettings) => Promise<void>;
   isMobilePlatform: boolean;
+  supportsDaemonControls?: boolean;
+  unsupportedControlsReason?: string | null;
   mobileConnectBusy: boolean;
   mobileConnectStatusText: string | null;
   mobileConnectStatusError: boolean;
@@ -66,6 +68,8 @@ export function SettingsServerSection({
   appSettings,
   onUpdateAppSettings,
   isMobilePlatform,
+  supportsDaemonControls = true,
+  unsupportedControlsReason = null,
   mobileConnectBusy,
   mobileConnectStatusText,
   mobileConnectStatusError,
@@ -118,6 +122,8 @@ export function SettingsServerSection({
   onMobileConnectTest,
 }: SettingsServerSectionProps) {
   const isMobileSimplified = isMobilePlatform;
+  const daemonControlsDisabled = !supportsDaemonControls;
+  const daemonControlsTitle = unsupportedControlsReason ?? "";
   const tcpRunnerStatusText = (() => {
     if (!tcpDaemonStatus) {
       return null;
@@ -141,6 +147,9 @@ export function SettingsServerSection({
           ? "Choose TCP or Orbit, fill in the connection endpoint and token from your desktop setup, then run a connection test."
           : "Configure how CodexMonitor exposes backend access for mobile and remote clients. Desktop usage remains local unless you explicitly connect through remote mode."}
       </div>
+      {daemonControlsDisabled && unsupportedControlsReason && (
+        <div className="settings-help">{unsupportedControlsReason}</div>
+      )}
 
       {!isMobileSimplified && (
         <div className="settings-field">
@@ -277,7 +286,8 @@ export function SettingsServerSection({
                     onClick={() => {
                       void onTcpDaemonStart();
                     }}
-                    disabled={tcpDaemonBusyAction !== null}
+                    disabled={daemonControlsDisabled || tcpDaemonBusyAction !== null}
+                    title={daemonControlsDisabled ? daemonControlsTitle : undefined}
                   >
                     {tcpDaemonBusyAction === "start" ? "Starting..." : "Start daemon"}
                   </button>
@@ -287,7 +297,8 @@ export function SettingsServerSection({
                     onClick={() => {
                       void onTcpDaemonStop();
                     }}
-                    disabled={tcpDaemonBusyAction !== null}
+                    disabled={daemonControlsDisabled || tcpDaemonBusyAction !== null}
+                    title={daemonControlsDisabled ? daemonControlsTitle : undefined}
                   >
                     {tcpDaemonBusyAction === "stop" ? "Stopping..." : "Stop daemon"}
                   </button>
@@ -297,7 +308,8 @@ export function SettingsServerSection({
                     onClick={() => {
                       void onTcpDaemonStatus();
                     }}
-                    disabled={tcpDaemonBusyAction !== null}
+                    disabled={daemonControlsDisabled || tcpDaemonBusyAction !== null}
+                    title={daemonControlsDisabled ? daemonControlsTitle : undefined}
                   >
                     {tcpDaemonBusyAction === "status" ? "Refreshing..." : "Refresh status"}
                   </button>
@@ -323,7 +335,8 @@ export function SettingsServerSection({
                     type="button"
                     className="button settings-button-compact"
                     onClick={onRefreshTailscaleStatus}
-                    disabled={tailscaleStatusBusy}
+                    disabled={daemonControlsDisabled || tailscaleStatusBusy}
+                    title={daemonControlsDisabled ? daemonControlsTitle : undefined}
                   >
                     {tailscaleStatusBusy ? "Checking..." : "Detect Tailscale"}
                   </button>
@@ -331,14 +344,16 @@ export function SettingsServerSection({
                     type="button"
                     className="button settings-button-compact"
                     onClick={onRefreshTailscaleCommandPreview}
-                    disabled={tailscaleCommandBusy}
+                    disabled={daemonControlsDisabled || tailscaleCommandBusy}
+                    title={daemonControlsDisabled ? daemonControlsTitle : undefined}
                   >
                     {tailscaleCommandBusy ? "Refreshing..." : "Refresh daemon command"}
                   </button>
                   <button
                     type="button"
                     className="button settings-button-compact"
-                    disabled={!tailscaleStatus?.suggestedRemoteHost}
+                    disabled={daemonControlsDisabled || !tailscaleStatus?.suggestedRemoteHost}
+                    title={daemonControlsDisabled ? daemonControlsTitle : undefined}
                     onClick={() => {
                       void onUseSuggestedTailscaleHost();
                     }}
@@ -535,7 +550,9 @@ export function SettingsServerSection({
                         orbitAutoStartRunner: !appSettings.orbitAutoStartRunner,
                       })
                     }
+                    disabled={daemonControlsDisabled}
                     aria-pressed={appSettings.orbitAutoStartRunner}
+                    title={daemonControlsDisabled ? daemonControlsTitle : undefined}
                   >
                     <span className="settings-toggle-knob" />
                   </button>
@@ -644,7 +661,8 @@ export function SettingsServerSection({
                       type="button"
                       className="button settings-button-compact"
                       onClick={onOrbitRunnerStart}
-                      disabled={orbitBusyAction !== null}
+                      disabled={daemonControlsDisabled || orbitBusyAction !== null}
+                      title={daemonControlsDisabled ? daemonControlsTitle : undefined}
                     >
                       {orbitBusyAction === "runner-start" ? "Starting..." : "Start Runner"}
                     </button>
@@ -652,7 +670,8 @@ export function SettingsServerSection({
                       type="button"
                       className="button settings-button-compact"
                       onClick={onOrbitRunnerStop}
-                      disabled={orbitBusyAction !== null}
+                      disabled={daemonControlsDisabled || orbitBusyAction !== null}
+                      title={daemonControlsDisabled ? daemonControlsTitle : undefined}
                     >
                       {orbitBusyAction === "runner-stop" ? "Stopping..." : "Stop Runner"}
                     </button>
@@ -660,7 +679,8 @@ export function SettingsServerSection({
                       type="button"
                       className="button settings-button-compact"
                       onClick={onOrbitRunnerStatus}
-                      disabled={orbitBusyAction !== null}
+                      disabled={daemonControlsDisabled || orbitBusyAction !== null}
+                      title={daemonControlsDisabled ? daemonControlsTitle : undefined}
                     >
                       {orbitBusyAction === "runner-status" ? "Refreshing..." : "Refresh Status"}
                     </button>

@@ -30,6 +30,7 @@ import {
   fileManagerName,
   isAbsolutePath as isAbsolutePathForPlatform,
 } from "../../../utils/platformPaths";
+import { isMissingRepoError } from "../utils/gitErrors";
 
 type GitDiffPanelProps = {
   workspaceId?: string | null;
@@ -234,20 +235,6 @@ function getStatusClass(status: string) {
     default:
       return "diff-icon-unknown";
   }
-}
-
-function isMissingRepo(error: string | null | undefined) {
-  if (!error) {
-    return false;
-  }
-  const normalized = error.toLowerCase();
-  return (
-    normalized.includes("could not find repository") ||
-    normalized.includes("not a git repository") ||
-    (normalized.includes("repository") && normalized.includes("notfound")) ||
-    normalized.includes("repository not found") ||
-    normalized.includes("git root not found")
-  );
 }
 
 type CommitButtonProps = {
@@ -1188,7 +1175,7 @@ export function GitDiffPanel({
       : fileStatus;
   const hasGitRoot = Boolean(gitRoot && gitRoot.trim());
   const showGitRootPanel =
-    isMissingRepo(error) ||
+    isMissingRepoError(error) ||
     gitRootScanLoading ||
     gitRootScanHasScanned ||
     Boolean(gitRootScanError) ||

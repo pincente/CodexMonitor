@@ -9,6 +9,7 @@ type UseTerminalControllerOptions = {
   activeWorkspaceId: string | null;
   activeWorkspace: WorkspaceInfo | null;
   terminalOpen: boolean;
+  enabled?: boolean;
   onCloseTerminalPanel?: () => void;
   onDebug: (entry: DebugEntry) => void;
 };
@@ -17,6 +18,7 @@ export function useTerminalController({
   activeWorkspaceId,
   activeWorkspace,
   terminalOpen,
+  enabled = true,
   onCloseTerminalPanel,
   onDebug,
 }: UseTerminalControllerOptions) {
@@ -30,6 +32,9 @@ export function useTerminalController({
 
   const handleTerminalClose = useCallback(
     async (workspaceId: string, terminalId: string) => {
+      if (!enabled) {
+        return;
+      }
       cleanupTerminalRef.current?.(workspaceId, terminalId);
       try {
         await closeTerminalSession(workspaceId, terminalId);
@@ -40,7 +45,7 @@ export function useTerminalController({
         onDebug(buildErrorDebugEntry("terminal close error", error));
       }
     },
-    [onDebug, shouldIgnoreTerminalCloseError],
+    [enabled, onDebug, shouldIgnoreTerminalCloseError],
   );
 
   const {
@@ -57,15 +62,15 @@ export function useTerminalController({
   });
 
   useEffect(() => {
-    if (terminalOpen && activeWorkspaceId) {
+    if (enabled && terminalOpen && activeWorkspaceId) {
       ensureTerminal(activeWorkspaceId);
     }
-  }, [activeWorkspaceId, ensureTerminal, terminalOpen]);
+  }, [activeWorkspaceId, enabled, ensureTerminal, terminalOpen]);
 
   const terminalState = useTerminalSession({
     activeWorkspace,
     activeTerminalId,
-    isVisible: terminalOpen,
+    isVisible: enabled && terminalOpen,
     onDebug,
     onSessionExit: (workspaceId, terminalId) => {
       const shouldClosePanel =
@@ -85,24 +90,24 @@ export function useTerminalController({
 
   const onSelectTerminal = useCallback(
     (terminalId: string) => {
-      if (!activeWorkspaceId) {
+      if (!enabled || !activeWorkspaceId) {
         return;
       }
       setActiveTerminal(activeWorkspaceId, terminalId);
     },
-    [activeWorkspaceId, setActiveTerminal],
+    [activeWorkspaceId, enabled, setActiveTerminal],
   );
 
   const onNewTerminal = useCallback(() => {
-    if (!activeWorkspaceId) {
+    if (!enabled || !activeWorkspaceId) {
       return;
     }
     createTerminal(activeWorkspaceId);
-  }, [activeWorkspaceId, createTerminal]);
+  }, [activeWorkspaceId, createTerminal, enabled]);
 
   const onCloseTerminal = useCallback(
     (terminalId: string) => {
-      if (!activeWorkspaceId) {
+      if (!enabled || !activeWorkspaceId) {
         return;
       }
       const shouldClosePanel =
@@ -112,11 +117,14 @@ export function useTerminalController({
         onCloseTerminalPanel?.();
       }
     },
-    [activeWorkspaceId, closeTerminal, onCloseTerminalPanel, terminalTabs],
+    [activeWorkspaceId, closeTerminal, enabled, onCloseTerminalPanel, terminalTabs],
   );
 
   const restartTerminalSession = useCallback(
     async (workspaceId: string, terminalId: string) => {
+      if (!enabled) {
+        throw new Error("Terminal is unavailable in browser mode.");
+      }
       cleanupTerminalRef.current?.(workspaceId, terminalId);
       try {
         await closeTerminalSession(workspaceId, terminalId);
@@ -127,16 +135,16 @@ export function useTerminalController({
         }
       }
     },
-    [onDebug, shouldIgnoreTerminalCloseError],
+    [enabled, onDebug, shouldIgnoreTerminalCloseError],
   );
 
   return {
-    terminalTabs,
-    activeTerminalId,
+    terminalTabs: enabled ? terminalTabs : [],
+    activeTerminalId: enabled ? activeTerminalId : null,
     onSelectTerminal,
     onNewTerminal,
     onCloseTerminal,
-    terminalState,
+    terminalState: enabled ? terminalState : null,
     ensureTerminalWithTitle,
     restartTerminalSession,
   };

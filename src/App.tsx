@@ -124,6 +124,7 @@ import { useCodeCssVars } from "./features/app/hooks/useCodeCssVars";
 import { useAccountSwitching } from "./features/app/hooks/useAccountSwitching";
 import { useNewAgentDraft } from "./features/app/hooks/useNewAgentDraft";
 import { useSystemNotificationThreadLinks } from "./features/app/hooks/useSystemNotificationThreadLinks";
+import { useRuntimeCapabilities } from "./features/app/hooks/useRuntimeCapabilities";
 
 const AboutView = lazy(() =>
   import("./features/about/components/AboutView").then((module) => ({
@@ -157,6 +158,16 @@ function getStoredThreadListSortKey(): ThreadListSortKey {
 }
 
 function MainApp() {
+  const runtimeCapabilities = useRuntimeCapabilities();
+  const terminalDisabledReason = runtimeCapabilities.supportsTerminal
+    ? null
+    : "Terminal is unavailable in web mode.";
+  const dictationDisabledReason = runtimeCapabilities.supportsDictation
+    ? null
+    : "Dictation is unavailable in web mode.";
+  const serverControlsDisabledReason = runtimeCapabilities.supportsDaemonControls
+    ? null
+    : "Daemon controls are unavailable in web mode.";
   const {
     appSettings,
     setAppSettings,
@@ -181,7 +192,7 @@ function MainApp() {
     clearDictationTranscript,
     clearDictationError,
     clearDictationHint,
-  } = useDictationController(appSettings);
+  } = useDictationController(appSettings, runtimeCapabilities.supportsDictation);
   const {
     debugOpen,
     setDebugOpen,
@@ -284,6 +295,7 @@ function MainApp() {
     setDebugOpen,
     toggleDebugPanelShortcut: appSettings.toggleDebugPanelShortcut,
     toggleTerminalShortcut: appSettings.toggleTerminalShortcut,
+    terminalEnabled: runtimeCapabilities.supportsTerminal,
   });
   const sidebarToggleProps = {
     isCompact,
@@ -918,6 +930,7 @@ function MainApp() {
     activeWorkspaceId,
     activeWorkspace,
     terminalOpen,
+    enabled: runtimeCapabilities.supportsTerminal,
     onCloseTerminalPanel: closeTerminalPanel,
     onDebug: addDebugEntry,
   });
@@ -1797,7 +1810,7 @@ function MainApp() {
     onCycleAgent: handleCycleAgent,
     onCycleWorkspace: handleCycleWorkspace,
     onToggleDebug: handleDebugClick,
-    onToggleTerminal: handleToggleTerminal,
+    onToggleTerminal: runtimeCapabilities.supportsTerminal ? handleToggleTerminal : () => {},
     sidebarCollapsed,
     rightPanelCollapsed,
     onExpandSidebar: expandSidebar,
@@ -1991,6 +2004,7 @@ function MainApp() {
     onCopyThread: handleCopyThread,
     onToggleTerminal: handleToggleTerminal,
     showTerminalButton: !isCompact,
+    terminalDisabledReason,
     showWorkspaceTools: !isCompact,
     launchScript: launchScriptState.launchScript,
     launchScriptEditorOpen: launchScriptState.editorOpen,
@@ -2213,7 +2227,8 @@ function MainApp() {
     composerEditorSettings,
     composerEditorExpanded,
     onToggleComposerEditorExpanded: toggleComposerEditorExpanded,
-    dictationEnabled: appSettings.dictationEnabled && dictationReady,
+    dictationEnabled:
+      runtimeCapabilities.supportsDictation && appSettings.dictationEnabled && dictationReady,
     dictationState,
     dictationLevel,
     onToggleDictation: handleToggleDictation,
@@ -2299,7 +2314,11 @@ function MainApp() {
       prompts={prompts}
       files={files}
       onFileAutocompleteActiveChange={setFileAutocompleteActive}
-      dictationEnabled={appSettings.dictationEnabled && dictationReady}
+      dictationEnabled={
+        runtimeCapabilities.supportsDictation &&
+        appSettings.dictationEnabled &&
+        dictationReady
+      }
       dictationState={dictationState}
       dictationLevel={dictationLevel}
       onToggleDictation={handleToggleDictation}
@@ -2472,6 +2491,10 @@ function MainApp() {
           scaleShortcutText,
           onTestNotificationSound: handleTestNotificationSound,
           onTestSystemNotification: handleTestSystemNotification,
+          supportsDictation: runtimeCapabilities.supportsDictation,
+          unsupportedDictationReason: dictationDisabledReason,
+          supportsDaemonControls: runtimeCapabilities.supportsDaemonControls,
+          unsupportedServerControlsReason: serverControlsDisabledReason,
           onMobileConnectSuccess: handleMobileConnectSuccess,
           dictationModelStatus: dictationModel.status,
           onDownloadDictationModel: dictationModel.download,

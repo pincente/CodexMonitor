@@ -73,6 +73,45 @@ Run in dev mode:
 npm run tauri:dev
 ```
 
+## Web UI Runtime (Daemon + WebSocket)
+
+You can run CodexMonitor as a browser UI without Tauri by connecting it to `codex_monitor_daemon` over WebSocket.
+
+- Codex execution still happens on the daemon host through the existing `codex app-server` integration.
+- This expects an installed and authenticated `codex` CLI on that host.
+
+### Start the daemon with WebSocket enabled
+
+```bash
+cd src-tauri
+cargo run --bin codex_monitor_daemon -- --listen 127.0.0.1:4732 --ws-listen 127.0.0.1:4733 --token <YOUR_TOKEN>
+```
+
+You can also set the websocket listener with `CODEX_MONITOR_DAEMON_WS_LISTEN` and keep CLI args for `--listen`/`--token`.
+
+### Start the web UI
+
+```bash
+npm run dev
+```
+
+Open the browser URL with daemon bootstrap params:
+
+```text
+http://localhost:1420/?daemonWs=ws://127.0.0.1:4733&daemonToken=<YOUR_TOKEN>
+```
+
+`daemonWs` and `daemonToken` are persisted in local storage. The token is removed from the URL after bootstrap.
+
+### Medium-mode limits (web runtime)
+
+These controls are visible but disabled in browser mode:
+
+- Terminal controls
+- Dictation controls
+- Tailscale daemon controls
+- Orbit runner controls
+
 ## iOS Support (WIP)
 
 iOS support is currently in progress.

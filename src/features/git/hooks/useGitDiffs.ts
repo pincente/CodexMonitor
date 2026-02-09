@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getGitDiffs } from "../../../services/tauri";
 import type { GitFileDiff, GitFileStatus, WorkspaceInfo } from "../../../types";
+import { isMissingRepoError } from "../utils/gitErrors";
 
 type GitDiffState = {
   diffs: GitFileDiff[];
@@ -58,17 +59,20 @@ export function useGitDiffs(
       setState({ diffs, isLoading: false, error: null });
       cachedDiffsRef.current.set(cacheKey, diffs);
     } catch (error) {
-      console.error("Failed to load git diffs", error);
       if (
         requestIdRef.current !== requestId ||
         cacheKeyRef.current !== cacheKey
       ) {
         return;
       }
+      const message = error instanceof Error ? error.message : String(error);
+      if (!isMissingRepoError(message)) {
+        console.error("Failed to load git diffs", error);
+      }
       setState({
         diffs: [],
         isLoading: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: isMissingRepoError(message) ? null : message,
       });
     }
   }, [activeWorkspace, ignoreWhitespaceChanges]);

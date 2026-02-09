@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useLayoutMode } from "../../layout/hooks/useLayoutMode";
 import { useResizablePanels } from "../../layout/hooks/useResizablePanels";
 import { useSidebarToggles } from "../../layout/hooks/useSidebarToggles";
@@ -10,12 +11,14 @@ export function useLayoutController({
   setDebugOpen,
   toggleDebugPanelShortcut,
   toggleTerminalShortcut,
+  terminalEnabled = true,
 }: {
   activeWorkspaceId: string | null;
   setActiveTab: (tab: "home" | "projects" | "codex" | "git" | "log") => void;
   setDebugOpen: (value: boolean | ((prev: boolean) => boolean)) => void;
   toggleDebugPanelShortcut: string | null;
   toggleTerminalShortcut: string | null;
+  terminalEnabled?: boolean;
 }) {
   const {
     sidebarWidth,
@@ -45,10 +48,10 @@ export function useLayoutController({
   } = useSidebarToggles({ isCompact });
 
   const {
-    terminalOpen,
+    terminalOpen: terminalOpenState,
     onToggleDebug: handleDebugClick,
-    onToggleTerminal: handleToggleTerminal,
-    openTerminal,
+    onToggleTerminal: toggleTerminalState,
+    openTerminal: openTerminalState,
     closeTerminal,
   } = usePanelVisibility({
     isCompact,
@@ -57,9 +60,23 @@ export function useLayoutController({
     setDebugOpen,
   });
 
+  const handleToggleTerminal = useCallback(() => {
+    if (!terminalEnabled) {
+      return;
+    }
+    toggleTerminalState();
+  }, [terminalEnabled, toggleTerminalState]);
+
+  const openTerminal = useCallback(() => {
+    if (!terminalEnabled) {
+      return;
+    }
+    openTerminalState();
+  }, [openTerminalState, terminalEnabled]);
+
   usePanelShortcuts({
     toggleDebugPanelShortcut,
-    toggleTerminalShortcut,
+    toggleTerminalShortcut: terminalEnabled ? toggleTerminalShortcut : null,
     onToggleDebug: handleDebugClick,
     onToggleTerminal: handleToggleTerminal,
   });
@@ -85,7 +102,7 @@ export function useLayoutController({
     expandSidebar,
     collapseRightPanel,
     expandRightPanel,
-    terminalOpen,
+    terminalOpen: terminalEnabled ? terminalOpenState : false,
     handleDebugClick,
     handleToggleTerminal,
     openTerminal,

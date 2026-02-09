@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import * as Sentry from "@sentry/react";
 import App from "./App";
 import { isMobilePlatform } from "./utils/platformPaths";
+import { initializeWebBridge } from "./services/webBridge";
 
 const sentryDsn =
   import.meta.env.VITE_SENTRY_DSN ??
@@ -86,11 +87,16 @@ function syncMobileViewportHeight() {
   });
 }
 
-disableMobileZoomGestures();
-syncMobileViewportHeight();
+async function bootstrap() {
+  await initializeWebBridge();
+  disableMobileZoomGestures();
+  syncMobileViewportHeight();
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);
+  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+  );
+}
+
+void bootstrap();

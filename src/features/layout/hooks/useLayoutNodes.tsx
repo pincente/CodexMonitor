@@ -214,6 +214,7 @@ type LayoutNodesOptions = {
   onCopyThread: () => void | Promise<void>;
   onToggleTerminal: () => void;
   showTerminalButton: boolean;
+  terminalDisabledReason?: string | null;
   showWorkspaceTools: boolean;
   launchScript: string | null;
   launchScriptEditorOpen: boolean;
@@ -706,6 +707,7 @@ export function useLayoutNodes(options: LayoutNodesOptions): LayoutNodesResult {
       onToggleTerminal={options.onToggleTerminal}
       isTerminalOpen={options.terminalOpen}
       showTerminalButton={options.showTerminalButton}
+      terminalDisabledReason={options.terminalDisabledReason}
       showWorkspaceTools={options.showWorkspaceTools}
       launchScript={options.launchScript}
       launchScriptEditorOpen={options.launchScriptEditorOpen}

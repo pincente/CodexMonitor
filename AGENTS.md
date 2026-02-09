@@ -400,3 +400,43 @@ At the end of a task:
   - Hook: `src/features/notifications/hooks/useErrorToasts.ts`
   - UI: `src/features/notifications/components/ErrorToasts.tsx`
   - Styles: `src/styles/error-toasts.css`
+
+## Rule of Five protocol (required for each act of nontrivial work)
+Apply five deliberate passes at each stage before marking the act ready for integration.
+
+### Design (five passes)
+- Clarify scope boundaries (what is in/out for this act).
+- Check dependencies and invariants/guardrails.
+- Stress failure modes and rollback posture.
+- Verify API/schema contract impacts and docs required.
+- Re-check for simplification opportunities.
+
+### Implementation plan (five passes)
+Use the implementation plan as the small-step dependency plan for the act.
+- Break work into smallest reviewable steps.
+- Order steps by dependency and risk reduction.
+- Re-check each step has explicit acceptance criteria.
+- Re-check each step has tests and gate mapping.
+- Re-check no step violates one-act scope or introduces hidden coupling.
+
+### Implementation (five passes)
+- Coding pass (initial implementation).
+- Self-review for correctness and boundary handling.
+- Guardrail review (security, redaction, single apply path, outbox posture).
+- Contract review (types, API/schema compatibility, migration safety).
+- Maintainability review (readability, naming, dead code/TODO cleanup).
+
+### Tests (five passes)
+- Happy-path behavior.
+- Edge/boundary cases.
+- Failure paths and expected error codes/messages.
+- Determinism/idempotency/concurrency where applicable.
+- Regression check for adjacent touched behavior.
+
+### Code health (five passes in dev middle loop)
+- Lint/style and obvious code smells.
+- Type safety and narrowing at boundaries.
+- Complexity reduction (remove duplication, tighten helpers).
+- Observability/readability (logs/messages/comments where needed).
+- Final diff hygiene (small scope, no unrelated edits, clean commit story).
+

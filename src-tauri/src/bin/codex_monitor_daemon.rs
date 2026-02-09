@@ -98,6 +98,7 @@ use types::{
 use workspace_settings::apply_workspace_settings_update;
 
 const DEFAULT_LISTEN_ADDR: &str = "127.0.0.1:4732";
+const DEFAULT_WS_LISTEN_ADDR: &str = "127.0.0.1:4733";
 const MAX_IN_FLIGHT_RPC_PER_CONNECTION: usize = 32;
 
 fn spawn_with_client(
@@ -148,6 +149,7 @@ impl EventSink for DaemonEventSink {
 
 struct DaemonConfig {
     listen: SocketAddr,
+    ws_listen: Option<SocketAddr>,
     token: Option<String>,
     data_dir: PathBuf,
     orbit_url: Option<String>,
@@ -1325,8 +1327,8 @@ fn default_data_dir() -> PathBuf {
 fn usage() -> String {
     format!(
         "\
-USAGE:\n  codex-monitor-daemon [--listen <addr>] [--data-dir <path>] [--token <token> | --insecure-no-auth]\n  codex-monitor-daemon --orbit-url <ws-url> [--orbit-token <token>] [--orbit-auth-url <url>] [--orbit-runner-name <name>] [--data-dir <path>]\n\n\
-OPTIONS:\n  --listen <addr>          Bind address (default: {DEFAULT_LISTEN_ADDR})\n  --data-dir <path>        Data dir holding workspaces.json/settings.json\n  --token <token>          Shared token required by TCP clients\n  --insecure-no-auth       Disable TCP auth (dev only)\n  --orbit-url <ws-url>     Run in Orbit runner mode and connect outbound to this WS URL\n  --orbit-token <token>    Orbit auth token (optional if URL already includes token)\n  --orbit-auth-url <url>   Orbit auth base URL (metadata only, optional)\n  --orbit-runner-name <n>  Runner display name (metadata only, optional)\n  -h, --help               Show this help\n"
+USAGE:\n  codex-monitor-daemon [--listen <addr>] [--ws-listen <addr>] [--data-dir <path>] [--token <token> | --insecure-no-auth]\n  codex-monitor-daemon --orbit-url <ws-url> [--orbit-token <token>] [--orbit-auth-url <url>] [--orbit-runner-name <name>] [--data-dir <path>]\n\n\
+OPTIONS:\n  --listen <addr>          Bind TCP address (default: {DEFAULT_LISTEN_ADDR})\n  --ws-listen <addr>       Bind websocket address for browser clients (default: {DEFAULT_WS_LISTEN_ADDR})\n  --data-dir <path>        Data dir holding workspaces.json/settings.json\n  --token <token>          Shared token required by TCP and websocket clients\n  --insecure-no-auth       Disable TCP/websocket auth (dev only)\n  --orbit-url <ws-url>     Run in Orbit runner mode and connect outbound to this WS URL\n  --orbit-token <token>    Orbit auth token (optional if URL already includes token)\n  --orbit-auth-url <url>   Orbit auth base URL (metadata only, optional)\n  --orbit-runner-name <n>  Runner display name (metadata only, optional)\n  -h, --help               Show this help\n"
     )
 }
 
@@ -1338,6 +1340,19 @@ fn parse_args() -> Result<DaemonConfig, String> {
         .ok()
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
+    let mut ws_listen = env::var("CODEX_MONITOR_DAEMON_WS_LISTEN")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .map(|value| value.parse::<SocketAddr>().map_err(|err| err.to_string()))
+        .transpose()?;
+    if ws_listen.is_none() {
+        ws_listen = Some(
+            DEFAULT_WS_LISTEN_ADDR
+                .parse::<SocketAddr>()
+                .map_err(|err| err.to_string())?,
+        );
+    }
     let mut insecure_no_auth = false;
     let mut data_dir: Option<PathBuf> = None;
     let mut orbit_url: Option<String> = None;
@@ -1364,6 +1379,10 @@ fn parse_args() -> Result<DaemonConfig, String> {
             "--listen" => {
                 let value = args.next().ok_or("--listen requires a value")?;
                 listen = value.parse::<SocketAddr>().map_err(|err| err.to_string())?;
+            }
+            "--ws-listen" => {
+                let value = args.next().ok_or("--ws-listen requires a value")?;
+                ws_listen = Some(value.parse::<SocketAddr>().map_err(|err| err.to_string())?);
             }
             "--token" => {
                 let value = args.next().ok_or("--token requires a value")?;
@@ -1431,6 +1450,7 @@ fn parse_args() -> Result<DaemonConfig, String> {
 
     Ok(DaemonConfig {
         listen,
+        ws_listen,
         token,
         data_dir: data_dir.unwrap_or_else(default_data_dir),
         orbit_url,
@@ -1590,6 +1610,24 @@ mod tests {
             let _ = std::fs::remove_dir_all(&tmp);
         });
     }
+
+    #[test]
+    fn rpc_is_mobile_runtime_returns_false() {
+        run_async_test(async {
+            let tmp = make_temp_dir("rpc-is-mobile-runtime");
+            let state = test_state(&tmp);
+            let result = rpc::handle_rpc_request(
+                &state,
+                "is_mobile_runtime",
+                json!({}),
+                "daemon-test".to_string(),
+            )
+            .await
+            .expect("is_mobile_runtime should succeed");
+            assert_eq!(result, json!(false));
+            let _ = std::fs::remove_dir_all(&tmp);
+        });
+    }
 }
 
 fn main() {
@@ -1627,35 +1665,6 @@ fn main() {
             return;
         }
 
-        let listener = match TcpListener::bind(config.listen).await {
-            Ok(listener) => listener,
-            Err(err) => {
-                eprintln!("failed to bind {}: {err}", config.listen);
-                std::process::exit(2);
-            }
-        };
-        eprintln!(
-            "codex-monitor-daemon listening on {} (data dir: {})",
-            config.listen,
-            state
-                .storage_path
-                .parent()
-                .unwrap_or(&state.storage_path)
-                .display()
-        );
-
-        loop {
-            match listener.accept().await {
-                Ok((socket, _addr)) => {
-                    let config = Arc::clone(&config);
-                    let state = Arc::clone(&state);
-                    let events = events_tx.clone();
-                    tokio::spawn(async move {
-                        transport::handle_client(socket, config, state, events).await;
-                    });
-                }
-                Err(_) => continue,
-            }
-        }
+        transport::run_tcp_mode(config, state, events_tx).await;
     });
 }

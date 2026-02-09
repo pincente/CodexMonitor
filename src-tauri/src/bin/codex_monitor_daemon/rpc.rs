@@ -705,6 +705,7 @@ pub(super) async fn handle_rpc_request(
             let snapshot = state.local_usage_snapshot(days, workspace_path).await?;
             serde_json::to_value(snapshot).map_err(|err| err.to_string())
         }
+        "is_mobile_runtime" => Ok(Value::Bool(false)),
         "menu_set_accelerators" => {
             let updates: Vec<Value> = match &params {
                 Value::Object(map) => map

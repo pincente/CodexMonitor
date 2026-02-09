@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Options as NotificationOptions } from "@tauri-apps/plugin-notification";
 import type {
@@ -38,38 +38,110 @@ function isMissingTauriInvokeError(error: unknown) {
   );
 }
 
-export async function pickWorkspacePath(): Promise<string | null> {
-  const selection = await open({ directory: true, multiple: false });
-  if (!selection || Array.isArray(selection)) {
-    return null;
+const TAURI_BRIDGE_UNAVAILABLE_MESSAGE =
+  "CodexMonitor backend is unavailable in browser mode. Run the app with Tauri (for example: npm run tauri:dev).";
+let hasLoggedBridgeUnavailable = false;
+
+export function isTauriBridgeUnavailableError(error: unknown): boolean {
+  return (
+    isMissingTauriInvokeError(error) ||
+    (error instanceof Error && error.message === TAURI_BRIDGE_UNAVAILABLE_MESSAGE)
+  );
+}
+
+export function getTauriBridgeUnavailableMessage(action?: string): string {
+  if (!action) {
+    return TAURI_BRIDGE_UNAVAILABLE_MESSAGE;
   }
-  return selection;
+  return `${action} requires the CodexMonitor Tauri backend. Run the app with Tauri (for example: npm run tauri:dev).`;
+}
+
+async function invoke<T>(
+  command: string,
+  payload?: Record<string, unknown>,
+): Promise<T> {
+  try {
+    if (payload === undefined) {
+      return await tauriInvoke<T>(command);
+    }
+    return await tauriInvoke<T>(command, payload);
+  } catch (error) {
+    if (isMissingTauriInvokeError(error)) {
+      throw new Error(TAURI_BRIDGE_UNAVAILABLE_MESSAGE);
+    }
+    throw error;
+  }
+}
+
+function buildEmptyLocalUsageSnapshot(): LocalUsageSnapshot {
+  return {
+    updatedAt: Date.now(),
+    days: [],
+    totals: {
+      last7DaysTokens: 0,
+      last30DaysTokens: 0,
+      averageDailyTokens: 0,
+      cacheHitRatePercent: 0,
+      peakDay: null,
+      peakDayTokens: 0,
+    },
+    topModels: [],
+  };
+}
+
+function logBridgeUnavailable(message: string) {
+  if (hasLoggedBridgeUnavailable) {
+    return;
+  }
+  hasLoggedBridgeUnavailable = true;
+  console.warn(message);
+}
+
+export async function pickWorkspacePath(): Promise<string | null> {
+  try {
+    const selection = await open({ directory: true, multiple: false });
+    if (!selection || Array.isArray(selection)) {
+      return null;
+    }
+    return selection;
+  } catch (error) {
+    if (isMissingTauriInvokeError(error)) {
+      throw new Error(getTauriBridgeUnavailableMessage("Adding a workspace"));
+    }
+    throw error;
+  }
 }
 
 export async function pickImageFiles(): Promise<string[]> {
-  const selection = await open({
-    multiple: true,
-    filters: [
-      {
-        name: "Images",
-        extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "tif"],
-      },
-    ],
-  });
-  if (!selection) {
-    return [];
+  try {
+    const selection = await open({
+      multiple: true,
+      filters: [
+        {
+          name: "Images",
+          extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "tif"],
+        },
+      ],
+    });
+    if (!selection) {
+      return [];
+    }
+    return Array.isArray(selection) ? selection : [selection];
+  } catch (error) {
+    if (isMissingTauriInvokeError(error)) {
+      throw new Error(getTauriBridgeUnavailableMessage("Adding image attachments"));
+    }
+    throw error;
   }
-  return Array.isArray(selection) ? selection : [selection];
 }
 
 export async function listWorkspaces(): Promise<WorkspaceInfo[]> {
   try {
     return await invoke<WorkspaceInfo[]>("list_workspaces");
   } catch (error) {
-    if (isMissingTauriInvokeError(error)) {
-      // In non-Tauri environments (e.g., Electron/web previews), the invoke
-      // bridge may be missing. Treat this as "no workspaces" instead of crashing.
-      console.warn("Tauri invoke bridge unavailable; returning empty workspaces list.");
+    if (isTauriBridgeUnavailableError(error)) {
+      // In browser previews, the Tauri bridge is missing.
+      logBridgeUnavailable("Tauri invoke bridge unavailable; returning empty workspaces list.");
       return [];
     }
     throw error;
@@ -466,7 +538,14 @@ export async function localUsageSnapshot(
   if (workspacePath) {
     payload.workspacePath = workspacePath;
   }
-  return invoke("local_usage_snapshot", payload);
+  try {
+    return await invoke("local_usage_snapshot", payload);
+  } catch (error) {
+    if (isTauriBridgeUnavailableError(error)) {
+      return buildEmptyLocalUsageSnapshot();
+    }
+    throw error;
+  }
 }
 
 export async function getModelList(workspaceId: string) {
@@ -589,7 +668,14 @@ export async function getAppSettings(): Promise<AppSettings> {
 }
 
 export async function isMobileRuntime(): Promise<boolean> {
-  return invoke<boolean>("is_mobile_runtime");
+  try {
+    return await invoke<boolean>("is_mobile_runtime");
+  } catch (error) {
+    if (isTauriBridgeUnavailableError(error)) {
+      return false;
+    }
+    throw error;
+  }
 }
 
 export async function updateAppSettings(settings: AppSettings): Promise<AppSettings> {
@@ -652,7 +738,14 @@ type MenuAcceleratorUpdate = {
 export async function setMenuAccelerators(
   updates: MenuAcceleratorUpdate[],
 ): Promise<void> {
-  return invoke("menu_set_accelerators", { updates });
+  try {
+    return await invoke("menu_set_accelerators", { updates });
+  } catch (error) {
+    if (isTauriBridgeUnavailableError(error)) {
+      return;
+    }
+    throw error;
+  }
 }
 
 export async function runCodexDoctor(

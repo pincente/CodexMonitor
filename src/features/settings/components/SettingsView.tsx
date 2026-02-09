@@ -291,6 +291,10 @@ export type SettingsViewProps = {
   scaleShortcutText: string;
   onTestNotificationSound: () => void;
   onTestSystemNotification: () => void;
+  supportsDictation?: boolean;
+  unsupportedDictationReason?: string | null;
+  supportsDaemonControls?: boolean;
+  unsupportedServerControlsReason?: string | null;
   onMobileConnectSuccess?: () => Promise<void> | void;
   dictationModelStatus?: DictationModelStatus | null;
   onDownloadDictationModel?: () => void;
@@ -386,6 +390,10 @@ export function SettingsView({
   scaleShortcutText,
   onTestNotificationSound,
   onTestSystemNotification,
+  supportsDictation = true,
+  unsupportedDictationReason = null,
+  supportsDaemonControls = true,
+  unsupportedServerControlsReason = null,
   onMobileConnectSuccess,
   dictationModelStatus,
   onDownloadDictationModel,
@@ -1880,6 +1888,9 @@ export function SettingsView({
               selectedDictationModel={selectedDictationModel}
               dictationModelStatus={dictationModelStatus}
               dictationReady={dictationReady}
+              controlsDisabledReason={
+                supportsDictation ? null : unsupportedDictationReason
+              }
               onUpdateAppSettings={onUpdateAppSettings}
               onDownloadDictationModel={onDownloadDictationModel}
               onCancelDictationDownload={onCancelDictationDownload}
@@ -1966,6 +1977,8 @@ export function SettingsView({
               onOrbitRunnerStop={handleOrbitRunnerStop}
               onOrbitRunnerStatus={handleOrbitRunnerStatus}
               isMobilePlatform={mobilePlatform}
+              supportsDaemonControls={supportsDaemonControls}
+              unsupportedControlsReason={unsupportedServerControlsReason}
               mobileConnectBusy={mobileConnectBusy}
               mobileConnectStatusText={mobileConnectStatusText}
               mobileConnectStatusError={mobileConnectStatusError}

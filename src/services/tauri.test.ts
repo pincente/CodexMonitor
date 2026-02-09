@@ -9,6 +9,7 @@ import {
   getGitHubIssues,
   getGitLog,
   getGitStatus,
+  isMobileRuntime,
   getOpenAppIcon,
   listMcpServerStatus,
   readGlobalAgentsMd,
@@ -111,6 +112,16 @@ describe("tauri invoke wrappers", () => {
 
     await expect(listWorkspaces()).resolves.toEqual([]);
     expect(invokeMock).toHaveBeenCalledWith("list_workspaces");
+  });
+
+  it("returns false for mobile runtime when bridge is unavailable", async () => {
+    const invokeMock = vi.mocked(invoke);
+    invokeMock.mockRejectedValueOnce(
+      new TypeError("Cannot read properties of undefined (reading 'invoke')"),
+    );
+
+    await expect(isMobileRuntime()).resolves.toBe(false);
+    expect(invokeMock).toHaveBeenCalledWith("is_mobile_runtime");
   });
 
   it("applies default limit for git log", async () => {
