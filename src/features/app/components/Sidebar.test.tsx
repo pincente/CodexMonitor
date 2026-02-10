@@ -60,7 +60,7 @@ const baseProps = {
   onReloadWorkspaceThreads: vi.fn(),
   workspaceDropTargetRef: createRef<HTMLElement>(),
   isWorkspaceDropActive: false,
-  workspaceDropText: "Drop Project Here",
+  workspaceDropText: "Drop Workstream Here",
   onWorkspaceDragOver: vi.fn(),
   onWorkspaceDragEnter: vi.fn(),
   onWorkspaceDragLeave: vi.fn(),
@@ -73,12 +73,12 @@ describe("Sidebar", () => {
     render(<Sidebar {...baseProps} />);
 
     const toggleButton = screen.getByRole("button", { name: "Toggle search" });
-    expect(screen.queryByLabelText("Search projects")).toBeNull();
+    expect(screen.queryByLabelText("Search workstreams")).toBeNull();
 
     act(() => {
       fireEvent.click(toggleButton);
     });
-    const input = screen.getByLabelText("Search projects") as HTMLInputElement;
+    const input = screen.getByLabelText("Search workstreams") as HTMLInputElement;
     expect(input).toBeTruthy();
 
     act(() => {
@@ -91,14 +91,68 @@ describe("Sidebar", () => {
       fireEvent.click(toggleButton);
       vi.runOnlyPendingTimers();
     });
-    expect(screen.queryByLabelText("Search projects")).toBeNull();
+    expect(screen.queryByLabelText("Search workstreams")).toBeNull();
 
     act(() => {
       fireEvent.click(toggleButton);
       vi.runOnlyPendingTimers();
     });
-    const reopened = screen.getByLabelText("Search projects") as HTMLInputElement;
+    const reopened = screen.getByLabelText("Search workstreams") as HTMLInputElement;
     expect(reopened.value).toBe("");
+  });
+
+  it("shows objective and workstream counts in the header", () => {
+    render(
+      <Sidebar
+        {...baseProps}
+        workspaces={[
+          {
+            id: "ws-1",
+            name: "Workspace One",
+            path: "/tmp/workspace-1",
+            connected: true,
+            settings: { sidebarCollapsed: false },
+          },
+          {
+            id: "ws-2",
+            name: "Workspace Two",
+            path: "/tmp/workspace-2",
+            connected: true,
+            settings: { sidebarCollapsed: false },
+          },
+        ]}
+        groupedWorkspaces={[
+          {
+            id: "objective-a",
+            name: "Objective A",
+            workspaces: [
+              {
+                id: "ws-1",
+                name: "Workspace One",
+                path: "/tmp/workspace-1",
+                connected: true,
+                settings: { sidebarCollapsed: false },
+              },
+            ],
+          },
+          {
+            id: "objective-b",
+            name: "Objective B",
+            workspaces: [
+              {
+                id: "ws-2",
+                name: "Workspace Two",
+                path: "/tmp/workspace-2",
+                connected: true,
+                settings: { sidebarCollapsed: false },
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("2 objectives · 2 workstreams")).toBeTruthy();
   });
 
   it("opens thread sort menu from the header filter button", () => {

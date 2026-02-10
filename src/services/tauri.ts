@@ -483,7 +483,27 @@ export async function localUsageSnapshot(
   if (workspacePath) {
     payload.workspacePath = workspacePath;
   }
-  return invoke("local_usage_snapshot", payload);
+  try {
+    return await invoke<LocalUsageSnapshot>("local_usage_snapshot", payload);
+  } catch (error) {
+    if (isMissingTauriInvokeError(error)) {
+      console.warn("Tauri invoke bridge unavailable; returning empty usage snapshot.");
+      return {
+        updatedAt: Date.now(),
+        days: [],
+        totals: {
+          last7DaysTokens: 0,
+          last30DaysTokens: 0,
+          averageDailyTokens: 0,
+          cacheHitRatePercent: 0,
+          peakDay: null,
+          peakDayTokens: 0,
+        },
+        topModels: [],
+      };
+    }
+    throw error;
+  }
 }
 
 export async function getModelList(workspaceId: string) {

@@ -342,6 +342,14 @@ export const Sidebar = memo(function Sidebar({
     [groupedWorkspaces, isWorkspaceMatch],
   );
 
+  const objectiveCount = groupedWorkspaces.length;
+  const workstreamCount = workspaces.filter(
+    (entry) => (entry.kind ?? "main") !== "worktree" && !entry.parentId,
+  ).length;
+  const navigationSummary = `${objectiveCount} objective${
+    objectiveCount === 1 ? "" : "s"
+  } · ${workstreamCount} workstream${workstreamCount === 1 ? "" : "s"}`;
+
   const isSearchActive = Boolean(normalizedQuery);
 
   const worktreesByParent = useMemo(() => {
@@ -419,6 +427,7 @@ export const Sidebar = memo(function Sidebar({
         onAddWorkspace={onAddWorkspace}
         onToggleSearch={() => setIsSearchOpen((prev) => !prev)}
         isSearchOpen={isSearchOpen}
+        navigationSummary={navigationSummary}
         threadListSortKey={threadListSortKey}
         onSetThreadListSortKey={onSetThreadListSortKey}
         onRefreshAllThreads={onRefreshAllThreads}
@@ -431,8 +440,8 @@ export const Sidebar = memo(function Sidebar({
             className="sidebar-search-input"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search projects"
-            aria-label="Search projects"
+            placeholder="Search workstreams"
+            aria-label="Search workstreams"
             data-tauri-drag-region="false"
             autoFocus
           />
@@ -457,10 +466,10 @@ export const Sidebar = memo(function Sidebar({
       >
         <div
           className={`workspace-drop-overlay-text${
-            workspaceDropText === "Adding Project..." ? " is-busy" : ""
+            workspaceDropText.toLowerCase().startsWith("adding ") ? " is-busy" : ""
           }`}
         >
-          {workspaceDropText === "Drop Project Here" && (
+          {workspaceDropText.toLowerCase().startsWith("drop ") && (
             <FolderOpen className="workspace-drop-overlay-icon" aria-hidden />
           )}
           {workspaceDropText}
@@ -679,7 +688,7 @@ export const Sidebar = memo(function Sidebar({
           {!filteredGroupedWorkspaces.length && (
             <div className="empty">
               {isSearchActive
-                ? "No projects match your search."
+                ? "No workstreams match your search."
                 : "Add a workspace to start."}
             </div>
           )}

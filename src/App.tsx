@@ -1733,7 +1733,7 @@ function MainApp() {
 
   useMenuAcceleratorController({ appSettings, onDebug: addDebugEntry });
   const dropOverlayActive = isWorkspaceDropActive;
-  const dropOverlayText = "Drop Project Here";
+  const dropOverlayText = "Drop Workstream Here";
   const appClassName = `app ${isCompact ? "layout-compact" : "layout-desktop"}${
     isPhone ? " layout-phone" : ""
   }${isTablet ? " layout-tablet" : ""}${

@@ -62,9 +62,9 @@ export function buildSecondaryNodes(options: LayoutNodesOptions): SecondaryLayou
   const compactEmptyCodexNode = (
     <div className="compact-empty">
       <h3>No workspace selected</h3>
-      <p>Choose a project to start chatting.</p>
+      <p>Choose a workstream to start chatting.</p>
       <button className="ghost" onClick={options.onGoProjects}>
-        Go to Projects
+        Go to Workstreams
       </button>
     </div>
   );
@@ -72,9 +72,9 @@ export function buildSecondaryNodes(options: LayoutNodesOptions): SecondaryLayou
   const compactEmptyGitNode = (
     <div className="compact-empty">
       <h3>No workspace selected</h3>
-      <p>Select a project to inspect diffs.</p>
+      <p>Select a workstream to inspect diffs.</p>
       <button className="ghost" onClick={options.onGoProjects}>
-        Go to Projects
+        Go to Workstreams
       </button>
     </div>
   );

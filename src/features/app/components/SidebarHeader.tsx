@@ -17,6 +17,7 @@ type SidebarHeaderProps = {
   onAddWorkspace: () => void;
   onToggleSearch: () => void;
   isSearchOpen: boolean;
+  navigationSummary?: string | null;
   threadListSortKey: ThreadListSortKey;
   onSetThreadListSortKey: (sortKey: ThreadListSortKey) => void;
   onRefreshAllThreads: () => void;
@@ -29,6 +30,7 @@ export function SidebarHeader({
   onAddWorkspace,
   onToggleSearch,
   isSearchOpen,
+  navigationSummary = null,
   threadListSortKey,
   onSetThreadListSortKey,
   onRefreshAllThreads,
@@ -60,7 +62,7 @@ export function SidebarHeader({
             className="sidebar-title-add"
             onClick={onAddWorkspace}
             data-tauri-drag-region="false"
-            aria-label="Add workspace"
+            aria-label="Add workstream"
             type="button"
           >
             <FolderPlus aria-hidden />
@@ -71,9 +73,10 @@ export function SidebarHeader({
             data-tauri-drag-region="false"
             aria-label="Open home"
           >
-            Projects
+            Objectives
           </button>
         </div>
+        {navigationSummary && <div className="sidebar-title-meta">{navigationSummary}</div>}
       </div>
       <div className="sidebar-header-actions">
         <div className="sidebar-sort-menu" ref={sortMenuRef}>
