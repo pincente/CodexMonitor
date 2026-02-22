@@ -42,11 +42,18 @@ export function WorkspaceCard({
     <div className="workspace-card">
       <div
         className={`workspace-row ${isActive ? "active" : ""}`}
+        data-focus-kind="workspace"
+        data-workspace-id={workspace.id}
+        data-collapsed={isCollapsed ? "true" : "false"}
         role="button"
         tabIndex={0}
+        aria-expanded={!isCollapsed}
         onClick={() => onSelectWorkspace(workspace.id)}
         onContextMenu={(event) => onShowWorkspaceMenu(event, workspace.id)}
         onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) {
+            return;
+          }
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             onSelectWorkspace(workspace.id);
@@ -100,7 +107,8 @@ export function WorkspaceCard({
           </div>
         </div>
         {!workspace.connected && (
-          <span
+          <button
+            type="button"
             className="connect"
             onClick={(event) => {
               event.stopPropagation();
@@ -108,7 +116,7 @@ export function WorkspaceCard({
             }}
           >
             connect
-          </span>
+          </button>
         )}
       </div>
       <div

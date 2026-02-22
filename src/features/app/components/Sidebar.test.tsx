@@ -14,6 +14,7 @@ afterEach(() => {
 });
 
 const baseProps = {
+  isAndroidRuntime: false,
   workspaces: [],
   groupedWorkspaces: [],
   hasWorkspaceGroups: false,
@@ -240,6 +241,46 @@ describe("Sidebar", () => {
     expect(draftRow.className).toContain("active");
 
     fireEvent.click(draftRow);
+    expect(onSelectWorkspace).toHaveBeenCalledWith("ws-1");
+  });
+
+  it("ignores back-key sidebar navigation on non-android runtimes", () => {
+    const onSelectWorkspace = vi.fn();
+    const onSelectHome = vi.fn();
+    const { container } = render(
+      <Sidebar
+        {...baseProps}
+        activeWorkspaceId="ws-1"
+        activeThreadId="thread-1"
+        onSelectWorkspace={onSelectWorkspace}
+        onSelectHome={onSelectHome}
+      />,
+    );
+
+    const sidebar = container.querySelector("aside.sidebar");
+    expect(sidebar).toBeTruthy();
+    fireEvent.keyDown(sidebar as HTMLElement, { key: "Escape" });
+
+    expect(onSelectWorkspace).not.toHaveBeenCalled();
+    expect(onSelectHome).not.toHaveBeenCalled();
+  });
+
+  it("uses back-key sidebar navigation on android runtimes", () => {
+    const onSelectWorkspace = vi.fn();
+    const { container } = render(
+      <Sidebar
+        {...baseProps}
+        isAndroidRuntime
+        activeWorkspaceId="ws-1"
+        activeThreadId="thread-1"
+        onSelectWorkspace={onSelectWorkspace}
+      />,
+    );
+
+    const sidebar = container.querySelector("aside.sidebar");
+    expect(sidebar).toBeTruthy();
+    fireEvent.keyDown(sidebar as HTMLElement, { key: "Escape" });
+
     expect(onSelectWorkspace).toHaveBeenCalledWith("ws-1");
   });
 });

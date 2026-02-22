@@ -61,6 +61,18 @@ export function isMobilePlatform(): boolean {
   );
 }
 
+export function isAndroidPlatform(): boolean {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+  const platform =
+    (navigator as Navigator & { userAgentData?: { platform?: string } })
+      .userAgentData?.platform ?? navigator.platform ?? "";
+  const normalizedPlatform = platform.toLowerCase();
+  const userAgent = (navigator.userAgent ?? "").toLowerCase();
+  return normalizedPlatform.includes("android") || userAgent.includes("android");
+}
+
 export function fileManagerName(): string {
   const platform = platformKind();
   if (platform === "mac") {

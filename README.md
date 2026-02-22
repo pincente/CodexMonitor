@@ -73,11 +73,11 @@ Run in dev mode:
 npm run tauri:dev
 ```
 
-## iOS Support (WIP)
+## Mobile Support (WIP)
 
-iOS support is currently in progress.
+Mobile support is currently in progress.
 
-- Current status: mobile layout runs, remote backend flow is wired, and iOS defaults to remote backend mode.
+- Current status: mobile layout runs, remote backend flow is wired, and iOS/Android builds default to remote backend mode.
 - Current limits: terminal and dictation remain unavailable on mobile builds.
 - Desktop behavior is unchanged: macOS/Linux/Windows remain local-first unless remote mode is explicitly selected.
 
@@ -170,6 +170,44 @@ Use the end-to-end script to archive, upload, configure compliance, assign beta 
 
 The script auto-loads release metadata from `.testflight.local.env` (gitignored).
 For new setups, copy `.testflight.local.env.example` to `.testflight.local.env` and fill values.
+
+### Google TV / Android Support (WIP)
+
+Use this when running CodexMonitor on Android TV / Google TV.
+Canonical runbook: `docs/mobile-android-google-tv-blueprint.md`.
+
+Prerequisites:
+
+- Android SDK platform-tools (`adb`) installed.
+- Rust Android targets installed:
+
+```bash
+rustup target add aarch64-linux-android x86_64-linux-android
+```
+
+One-time Android target initialization + TV manifest patch:
+
+```bash
+./scripts/build_run_android_tv.sh --init-only
+```
+
+List available Android/TV devices:
+
+```bash
+./scripts/build_run_android_tv.sh --list-devices
+```
+
+Run on Android/TV in production mode:
+
+```bash
+./scripts/build_run_android_tv.sh --device "<adb-device-id>"
+```
+
+Run on Android/TV in development mode:
+
+```bash
+./scripts/build_run_android_tv.sh --dev --device "<adb-device-id>"
+```
 
 ## Release Build
 

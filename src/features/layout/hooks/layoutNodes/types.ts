@@ -244,6 +244,7 @@ export type LayoutNodesOptions = {
   tabletNavTab: "codex" | "git" | "log";
   gitPanelMode: GitPanelMode;
   onGitPanelModeChange: (mode: GitPanelMode) => void;
+  isAndroidRuntime: boolean;
   isPhone: boolean;
   gitDiffViewStyle: "split" | "unified";
   gitDiffIgnoreWhitespaceChanges: boolean;

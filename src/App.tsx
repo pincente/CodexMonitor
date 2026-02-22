@@ -37,6 +37,7 @@ import "./styles/settings.css";
 import "./styles/compact-base.css";
 import "./styles/compact-phone.css";
 import "./styles/compact-tablet.css";
+import "./styles/material-android.css";
 import successSoundUrl from "@/assets/success-notification.mp3";
 import errorSoundUrl from "@/assets/error-notification.mp3";
 import { AppLayout } from "@app/components/AppLayout";
@@ -131,6 +132,7 @@ import {
 } from "@app/hooks/useRemoteThreadRefreshOnFocus";
 import { useRemoteThreadLiveConnection } from "@app/hooks/useRemoteThreadLiveConnection";
 import { useAppBootstrapOrchestration } from "@app/bootstrap/useAppBootstrapOrchestration";
+import { isAndroidPlatform } from "@utils/platformPaths";
 import {
   useThreadCodexBootstrapOrchestration,
   useThreadCodexSyncOrchestration,
@@ -246,6 +248,7 @@ function MainApp() {
     queueSaveSettings,
     refreshWorkspaces,
   });
+  const isAndroidRuntime = useMemo(() => isAndroidPlatform(), []);
   const updaterEnabled = !isMobileRuntime;
 
   const workspacesById = useMemo(
@@ -1761,6 +1764,7 @@ function MainApp() {
     isCompact,
     isPhone,
     isTablet,
+    isAndroidRuntime,
     sidebarCollapsed,
     rightPanelCollapsed,
     shouldReduceTransparency,
@@ -2071,6 +2075,7 @@ function MainApp() {
     tabletNavTab: tabletTab,
     gitPanelMode,
     onGitPanelModeChange: handleGitPanelModeChange,
+    isAndroidRuntime,
     isPhone,
     gitDiffViewStyle,
     gitDiffIgnoreWhitespaceChanges:

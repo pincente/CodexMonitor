@@ -5,6 +5,7 @@ type UseAppShellOrchestrationOptions = {
   isCompact: boolean;
   isPhone: boolean;
   isTablet: boolean;
+  isAndroidRuntime: boolean;
   sidebarCollapsed: boolean;
   rightPanelCollapsed: boolean;
   shouldReduceTransparency: boolean;
@@ -26,6 +27,7 @@ export function useAppShellOrchestration({
   isCompact,
   isPhone,
   isTablet,
+  isAndroidRuntime,
   sidebarCollapsed,
   rightPanelCollapsed,
   shouldReduceTransparency,
@@ -48,6 +50,8 @@ export function useAppShellOrchestration({
   const appClassName = `app ${isCompact ? "layout-compact" : "layout-desktop"}${
     isPhone ? " layout-phone" : ""
   }${isTablet ? " layout-tablet" : ""}${
+    isAndroidRuntime ? " platform-android" : ""
+  }${
     shouldReduceTransparency ? " reduced-transparency" : ""
   }${!isCompact && sidebarCollapsed ? " sidebar-collapsed" : ""}${
     !isCompact && rightPanelCollapsed ? " right-panel-collapsed" : ""

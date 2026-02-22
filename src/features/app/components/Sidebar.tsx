@@ -39,6 +39,62 @@ import { formatRelativeTimeShort } from "../../../utils/time";
 const COLLAPSED_GROUPS_STORAGE_KEY = "codexmonitor.collapsedGroups";
 const UNGROUPED_COLLAPSE_ID = "__ungrouped__";
 const ADD_MENU_WIDTH = 200;
+const SIDEBAR_ROW_SELECTOR = ".workspace-row, .worktree-row, .thread-row";
+const SIDEBAR_DPAD_FOCUS_SELECTOR = [
+  ".sidebar-title-button",
+  ".sidebar-title-add",
+  ".sidebar-sort-toggle",
+  ".sidebar-refresh-toggle",
+  ".sidebar-search-toggle",
+  ".sidebar-search-input",
+  ".workspace-group-header.is-toggleable",
+  ".workspace-row",
+  ".worktree-row",
+  ".thread-row",
+  ".thread-more",
+  ".sidebar-corner-button",
+  ".sidebar-account-action",
+  ".sidebar-account-cancel",
+].join(", ");
+const SIDEBAR_BACK_KEYS = new Set([
+  "Escape",
+  "Back",
+  "BrowserBack",
+  "GoBack",
+  "TVBack",
+]);
+
+function isSidebarElementFocusable(element: HTMLElement): boolean {
+  if (element.tabIndex < 0) {
+    return false;
+  }
+  if (element.closest("[inert]")) {
+    return false;
+  }
+  if ("disabled" in element && (element as HTMLButtonElement).disabled) {
+    return false;
+  }
+  const style = window.getComputedStyle(element);
+  if (
+    style.display === "none" ||
+    style.visibility === "hidden" ||
+    Number.parseFloat(style.opacity || "1") === 0
+  ) {
+    return false;
+  }
+  return element.getClientRects().length > 0;
+}
+
+function getSidebarFocusableElements(root: HTMLElement): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(SIDEBAR_DPAD_FOCUS_SELECTOR)).filter(
+    isSidebarElementFocusable,
+  );
+}
+
+function parseThreadDepth(element: HTMLElement): number {
+  const value = Number.parseInt(element.dataset.threadDepth ?? "0", 10);
+  return Number.isFinite(value) ? value : 0;
+}
 
 type WorkspaceGroupSection = {
   id: string | null;
@@ -47,6 +103,7 @@ type WorkspaceGroupSection = {
 };
 
 type SidebarProps = {
+  isAndroidRuntime: boolean;
   workspaces: WorkspaceInfo[];
   groupedWorkspaces: WorkspaceGroupSection[];
   hasWorkspaceGroups: boolean;
@@ -108,6 +165,7 @@ type SidebarProps = {
 };
 
 export const Sidebar = memo(function Sidebar({
+  isAndroidRuntime,
   workspaces,
   groupedWorkspaces,
   hasWorkspaceGroups,
@@ -425,10 +483,242 @@ export const Sidebar = memo(function Sidebar({
     }
   }, [isSearchOpen, searchQuery]);
 
+  const handleSidebarDirectionalNav = useCallback(
+    (event: React.KeyboardEvent<HTMLElement>) => {
+      if (!isAndroidRuntime) {
+        return;
+      }
+      const key = event.key;
+      const isVerticalMove = key === "ArrowDown" || key === "ArrowUp";
+      const isHorizontalMove = key === "ArrowLeft" || key === "ArrowRight";
+      const isBackKey = SIDEBAR_BACK_KEYS.has(key);
+      if (!isVerticalMove && !isHorizontalMove && !isBackKey) {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      if (!target) {
+        return;
+      }
+      const tag = target.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
+        if (key === "Escape" && isSearchOpen) {
+          event.preventDefault();
+          setIsSearchOpen(false);
+        }
+        return;
+      }
+
+      if (isBackKey) {
+        if (addMenuAnchor) {
+          event.preventDefault();
+          setAddMenuAnchor(null);
+          return;
+        }
+        if (isSearchOpen) {
+          event.preventDefault();
+          setIsSearchOpen(false);
+          return;
+        }
+        if (activeThreadId && activeWorkspaceId) {
+          event.preventDefault();
+          onSelectWorkspace(activeWorkspaceId);
+          return;
+        }
+        if (activeWorkspaceId) {
+          event.preventDefault();
+          onSelectHome();
+        }
+        return;
+      }
+
+      const root = event.currentTarget;
+      const focusables = getSidebarFocusableElements(root);
+      if (!focusables.length) {
+        return;
+      }
+
+      const active = document.activeElement as HTMLElement | null;
+      const current =
+        (active && root.contains(active) ? active : null) ??
+        target.closest<HTMLElement>(SIDEBAR_DPAD_FOCUS_SELECTOR);
+      if (!current) {
+        return;
+      }
+
+      if (isVerticalMove) {
+        const currentIndex = focusables.indexOf(current);
+        const direction = key === "ArrowDown" ? 1 : -1;
+        let nextIndex = currentIndex + direction;
+        if (currentIndex === -1) {
+          nextIndex = direction > 0 ? 0 : focusables.length - 1;
+        } else if (nextIndex < 0) {
+          nextIndex = focusables.length - 1;
+        } else if (nextIndex >= focusables.length) {
+          nextIndex = 0;
+        }
+        const next = focusables[nextIndex];
+        if (!next || next === current) {
+          return;
+        }
+        event.preventDefault();
+        next.focus();
+        return;
+      }
+
+      const currentRow = current.closest<HTMLElement>(SIDEBAR_ROW_SELECTOR);
+      if (!currentRow) {
+        return;
+      }
+
+      const focusFirstDescendant = () => {
+        const card = currentRow.closest(".workspace-card, .worktree-card");
+        if (!card) {
+          return false;
+        }
+        const next = Array.from(
+          card.querySelectorAll<HTMLElement>(
+            ".workspace-card-content .worktree-row, .workspace-card-content .thread-row, .workspace-card-content .thread-more, .worktree-card-content .thread-row, .worktree-card-content .thread-more",
+          ),
+        ).find(isSidebarElementFocusable);
+        if (!next) {
+          return false;
+        }
+        next.focus();
+        return true;
+      };
+
+      if (key === "ArrowRight") {
+        if (currentRow.matches(".workspace-row, .worktree-row")) {
+          const isExpanded = currentRow.getAttribute("aria-expanded") === "true";
+          const toggle = currentRow.querySelector<HTMLButtonElement>(
+            ".workspace-toggle, .worktree-toggle",
+          );
+          if (!isExpanded && toggle) {
+            event.preventDefault();
+            toggle.click();
+            window.setTimeout(() => {
+              focusFirstDescendant();
+            }, 0);
+            return;
+          }
+          if (focusFirstDescendant()) {
+            event.preventDefault();
+          }
+          return;
+        }
+
+        if (currentRow.matches(".thread-row")) {
+          const threadList = currentRow.closest(".thread-list");
+          if (!threadList) {
+            return;
+          }
+          const rows = Array.from(
+            threadList.querySelectorAll<HTMLElement>(".thread-row"),
+          );
+          const currentIndex = rows.indexOf(currentRow);
+          if (currentIndex === -1) {
+            return;
+          }
+          const depth = parseThreadDepth(currentRow);
+          for (let index = currentIndex + 1; index < rows.length; index += 1) {
+            const candidate = rows[index];
+            const candidateDepth = parseThreadDepth(candidate);
+            if (candidateDepth <= depth) {
+              break;
+            }
+            if (
+              candidateDepth === depth + 1 &&
+              isSidebarElementFocusable(candidate)
+            ) {
+              event.preventDefault();
+              candidate.focus();
+              return;
+            }
+          }
+        }
+        return;
+      }
+
+      if (!currentRow.matches(".thread-row")) {
+        const isExpanded = currentRow.getAttribute("aria-expanded") === "true";
+        const toggle = currentRow.querySelector<HTMLButtonElement>(
+          ".workspace-toggle, .worktree-toggle",
+        );
+        if (isExpanded && toggle) {
+          event.preventDefault();
+          toggle.click();
+          return;
+        }
+        if (currentRow.matches(".worktree-row")) {
+          const parentWorkspace = currentRow
+            .closest(".worktree-section")
+            ?.closest(".workspace-card")
+            ?.querySelector<HTMLElement>(".workspace-row");
+          if (parentWorkspace && isSidebarElementFocusable(parentWorkspace)) {
+            event.preventDefault();
+            parentWorkspace.focus();
+          }
+        }
+        return;
+      }
+
+      const threadList = currentRow.closest(".thread-list");
+      if (threadList) {
+        const rows = Array.from(threadList.querySelectorAll<HTMLElement>(".thread-row"));
+        const currentIndex = rows.indexOf(currentRow);
+        const depth = parseThreadDepth(currentRow);
+        if (currentIndex !== -1 && depth > 0) {
+          for (let index = currentIndex - 1; index >= 0; index -= 1) {
+            const candidate = rows[index];
+            const candidateDepth = parseThreadDepth(candidate);
+            if (candidateDepth === depth - 1 && isSidebarElementFocusable(candidate)) {
+              event.preventDefault();
+              candidate.focus();
+              return;
+            }
+            if (candidateDepth < depth - 1) {
+              break;
+            }
+          }
+        }
+      }
+
+      const workspaceId = currentRow.dataset.workspaceId?.trim();
+      if (!workspaceId) {
+        return;
+      }
+      const ownerRow =
+        currentRow
+          .closest(".workspace-card, .worktree-card")
+          ?.querySelector<HTMLElement>(".workspace-row, .worktree-row") ??
+        Array.from(
+          root.querySelectorAll<HTMLElement>(".workspace-row, .worktree-row"),
+        ).find((row) => row.dataset.workspaceId === workspaceId);
+      if (ownerRow && isSidebarElementFocusable(ownerRow)) {
+        event.preventDefault();
+        ownerRow.focus();
+      }
+    },
+    [
+      activeThreadId,
+      activeWorkspaceId,
+      addMenuAnchor,
+      isAndroidRuntime,
+      isSearchOpen,
+      onSelectHome,
+      onSelectWorkspace,
+    ],
+  );
+
   return (
     <aside
       className={`sidebar${isSearchOpen ? " search-open" : ""}`}
       ref={workspaceDropTargetRef}
+      onKeyDownCapture={isAndroidRuntime ? handleSidebarDirectionalNav : undefined}
       onDragOver={onWorkspaceDragOver}
       onDragEnter={onWorkspaceDragEnter}
       onDragLeave={onWorkspaceDragLeave}
@@ -627,13 +917,16 @@ export const Sidebar = memo(function Sidebar({
                           document.body,
                         )}
                       {isDraftNewAgent && (
-                        <div
+                        <button
+                          type="button"
                           className={`thread-row thread-row-draft${
                             isDraftRowActive ? " active" : ""
                           }`}
+                          data-focus-kind="thread"
+                          data-workspace-id={entry.id}
+                          data-thread-id="new-agent"
+                          data-thread-depth="0"
                           onClick={() => onSelectWorkspace(entry.id)}
-                          role="button"
-                          tabIndex={0}
                           onKeyDown={(event) => {
                             if (event.key === "Enter" || event.key === " ") {
                               event.preventDefault();
@@ -643,7 +936,7 @@ export const Sidebar = memo(function Sidebar({
                         >
                           <span className={`thread-status ${draftStatusClass}`} aria-hidden />
                           <span className="thread-name">New Agent</span>
-                        </div>
+                        </button>
                       )}
                       {worktrees.length > 0 && (
                         <WorktreeSection
