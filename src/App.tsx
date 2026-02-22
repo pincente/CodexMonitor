@@ -1880,7 +1880,6 @@ function MainApp() {
     Boolean(activeWorkspace?.connected) &&
     appSettings.backendMode === "remote" &&
     remoteThreadConnectionState === "polling";
-
   const {
     sidebarNode,
     messagesNode,

@@ -94,9 +94,10 @@
 }
 
 .sidebar-header-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
   min-width: 0;
 }
 
@@ -109,6 +110,16 @@
 
 .sidebar-title-button {
   min-width: 0;
+}
+
+.sidebar-title-meta {
+  color: var(--text-faint);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  padding-left: 24px;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .sidebar-title-add {
