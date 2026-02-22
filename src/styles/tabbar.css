@@ -72,3 +72,9 @@ html[data-mobile-composer-focus="true"] .app.layout-phone .tabbar {
   width: 18px;
   height: 18px;
 }
+
+.tabbar-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

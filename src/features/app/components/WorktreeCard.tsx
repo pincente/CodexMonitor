@@ -32,9 +32,13 @@ export function WorktreeCard({
     <div className={`worktree-card${isDeleting ? " deleting" : ""}`}>
       <div
         className={`worktree-row ${isActive ? "active" : ""}${isDeleting ? " deleting" : ""}`}
+        data-focus-kind="worktree"
+        data-workspace-id={worktree.id}
+        data-collapsed={worktreeCollapsed ? "true" : "false"}
         role="button"
         tabIndex={isDeleting ? -1 : 0}
         aria-disabled={isDeleting}
+        aria-expanded={!worktreeCollapsed}
         onClick={() => {
           if (!isDeleting) {
             onSelectWorkspace(worktree.id);
@@ -46,6 +50,9 @@ export function WorktreeCard({
           }
         }}
         onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) {
+            return;
+          }
           if (isDeleting) {
             return;
           }
@@ -77,7 +84,8 @@ export function WorktreeCard({
                 <span className="worktree-toggle-icon">›</span>
               </button>
               {!worktree.connected && (
-                <span
+                <button
+                  type="button"
                   className="connect"
                   onClick={(event) => {
                     event.stopPropagation();
@@ -85,7 +93,7 @@ export function WorktreeCard({
                   }}
                 >
                   connect
-                </span>
+                </button>
               )}
             </>
           )}

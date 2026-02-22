@@ -6,6 +6,7 @@ Related docs:
 
 - Setup/build/release: `README.md`
 - iOS remote over Tailscale (TCP): `docs/mobile-ios-tailscale-blueprint.md`
+- Android/Google TV remote runbook: `docs/mobile-android-google-tv-blueprint.md`
 
 ## Start Here: How Changes Flow
 

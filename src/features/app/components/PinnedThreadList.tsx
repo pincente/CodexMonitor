@@ -66,20 +66,23 @@ export function PinnedThreadList({
         const isPinned = canPin && isThreadPinned(workspaceId, thread.id);
 
         return (
-          <div
+          <button
+            type="button"
             key={`${workspaceId}:${thread.id}`}
             className={`thread-row ${
               workspaceId === activeWorkspaceId && thread.id === activeThreadId
                 ? "active"
                 : ""
             }`}
+            data-focus-kind="thread"
+            data-workspace-id={workspaceId}
+            data-thread-id={thread.id}
+            data-thread-depth={String(depth)}
             style={indentStyle}
             onClick={() => onSelectThread(workspaceId, thread.id)}
             onContextMenu={(event) =>
               onShowThreadMenu(event, workspaceId, thread.id, canPin)
             }
-            role="button"
-            tabIndex={0}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
@@ -100,7 +103,7 @@ export function PinnedThreadList({
                 <div className="thread-menu-trigger" aria-hidden="true" />
               </div>
             </div>
-          </div>
+          </button>
         );
       })}
     </div>

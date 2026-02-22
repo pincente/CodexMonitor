@@ -33,6 +33,7 @@ export function buildPrimaryNodes(options: LayoutNodesOptions): PrimaryLayoutNod
 
   const sidebarNode = (
     <Sidebar
+      isAndroidRuntime={options.isAndroidRuntime}
       workspaces={options.workspaces}
       groupedWorkspaces={options.groupedWorkspaces}
       hasWorkspaceGroups={options.hasWorkspaceGroups}

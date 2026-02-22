@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import "../../../styles/mobile-setup-wizard.css";
 import X from "lucide-react/dist/esm/icons/x";
 import { ModalShell } from "../../design-system/components/modal/ModalShell";
@@ -27,6 +28,20 @@ export function MobileServerSetupWizard({
   onRemoteTokenChange,
   onConnectTest,
 }: MobileServerSetupWizardProps) {
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const hostInputRef = useRef<HTMLInputElement | null>(null);
+  const tokenInputRef = useRef<HTMLInputElement | null>(null);
+  const actionButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      hostInputRef.current?.focus();
+    }, 40);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, []);
+
   return (
     <ModalShell
       className="mobile-setup-wizard-overlay"
@@ -40,6 +55,13 @@ export function MobileServerSetupWizard({
           className="ghost icon-button mobile-setup-wizard-close"
           onClick={onClose}
           aria-label="Close mobile setup"
+          ref={closeButtonRef}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              hostInputRef.current?.focus();
+            }
+          }}
         >
           <X aria-hidden />
         </button>
@@ -61,7 +83,21 @@ export function MobileServerSetupWizard({
           value={remoteHostDraft}
           placeholder="macbook.your-tailnet.ts.net:4732"
           onChange={(event) => onRemoteHostChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === "ArrowDown") {
+              event.preventDefault();
+              tokenInputRef.current?.focus();
+            } else if (event.key === "ArrowUp") {
+              event.preventDefault();
+              closeButtonRef.current?.focus();
+            }
+          }}
           disabled={busy || checking}
+          ref={hostInputRef}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="next"
         />
 
         <label className="mobile-setup-wizard-label" htmlFor="mobile-setup-token">
@@ -74,7 +110,24 @@ export function MobileServerSetupWizard({
           value={remoteTokenDraft}
           placeholder="Token"
           onChange={(event) => onRemoteTokenChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              onConnectTest();
+            } else if (event.key === "ArrowUp") {
+              event.preventDefault();
+              hostInputRef.current?.focus();
+            } else if (event.key === "ArrowDown") {
+              event.preventDefault();
+              actionButtonRef.current?.focus();
+            }
+          }}
           disabled={busy || checking}
+          ref={tokenInputRef}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="go"
         />
 
         <button
@@ -82,6 +135,13 @@ export function MobileServerSetupWizard({
           className="button primary mobile-setup-wizard-action"
           onClick={onConnectTest}
           disabled={busy || checking}
+          ref={actionButtonRef}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              tokenInputRef.current?.focus();
+            }
+          }}
         >
           {checking ? "Checking..." : busy ? "Connecting..." : "Connect & test"}
         </button>

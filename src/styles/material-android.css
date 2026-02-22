@@ -1,0 +1,522 @@
+.app.platform-android.layout-phone,
+.app.platform-android.layout-tablet {
+  --ui-font-family: "Roboto Flex", "Roboto", "Noto Sans", "Segoe UI", sans-serif;
+  --tabbar-height: 64px;
+  --android-shape-full: 999px;
+  --android-shape-xl: 24px;
+  --android-shape-lg: 16px;
+  --android-shape-md: 12px;
+  --android-outline: color-mix(in srgb, var(--border-strong) 78%, #95b9e8 22%);
+  --android-outline-strong: color-mix(in srgb, var(--border-accent) 78%, #abcbed 22%);
+  --android-tonal-surface: color-mix(in srgb, var(--surface-card-strong) 90%, var(--surface-card) 10%);
+  --android-tonal-surface-hover: color-mix(
+    in srgb,
+    var(--surface-control-hover) 62%,
+    var(--surface-card) 38%
+  );
+  --android-primary-container: color-mix(in srgb, var(--surface-active) 82%, #8ac3f4 18%);
+  --android-shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.24);
+  --android-focus-ring: 0 0 0 3px color-mix(in srgb, var(--border-accent) 70%, #9ecfff 30%);
+}
+
+.app.platform-android.layout-phone {
+  background: color-mix(in srgb, var(--surface-messages) 95%, #060b14 5%);
+}
+
+.app.platform-android.layout-phone .compact-topbar,
+.app.platform-android.layout-tablet .main-topbar {
+  min-height: 48px;
+  border-bottom: 1px solid var(--android-outline);
+  backdrop-filter: blur(10px) saturate(1.02);
+}
+
+.app.platform-android.layout-phone button,
+.app.platform-android.layout-tablet button {
+  border-radius: var(--android-shape-md);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.app.platform-android.layout-phone button:hover:not(:disabled),
+.app.platform-android.layout-tablet button:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.app.platform-android.layout-phone .primary,
+.app.platform-android.layout-tablet .primary {
+  background: var(--android-primary-container);
+  color: var(--text-strong);
+  border: 1px solid transparent;
+  box-shadow: var(--android-shadow-soft);
+}
+
+.app.platform-android.layout-phone .secondary,
+.app.platform-android.layout-tablet .secondary,
+.app.platform-android.layout-phone .ghost,
+.app.platform-android.layout-tablet .ghost {
+  background: var(--android-tonal-surface);
+  border: 1px solid var(--android-outline);
+}
+
+.app.platform-android.layout-phone .ghost,
+.app.platform-android.layout-tablet .ghost {
+  color: var(--text-quiet);
+}
+
+.app.platform-android.layout-phone .primary:hover:not(:disabled),
+.app.platform-android.layout-tablet .primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--android-primary-container) 84%, white 16%);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.28);
+}
+
+.app.platform-android.layout-phone .tabbar {
+  gap: 8px;
+  padding: 8px 10px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--android-outline);
+  background: color-mix(in srgb, var(--surface-topbar) 92%, var(--surface-card-strong) 8%);
+  backdrop-filter: blur(20px) saturate(1.05);
+}
+
+.app.platform-android.layout-phone .tabbar-item {
+  border-radius: var(--android-shape-lg);
+  font-weight: 500;
+  padding: 10px 6px;
+  color: var(--text-muted);
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease;
+}
+
+.app.platform-android.layout-phone .tabbar-item::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--surface-control-hover) 74%, transparent);
+  opacity: 0;
+  transform: scale(0.88);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+  z-index: 0;
+}
+
+.app.platform-android.layout-phone .tabbar-item > * {
+  position: relative;
+  z-index: 1;
+}
+
+.app.platform-android.layout-phone .tabbar-item:hover {
+  background: var(--android-tonal-surface-hover);
+  color: var(--text-strong);
+}
+
+.app.platform-android.layout-phone .tabbar-item:hover::before,
+.app.platform-android.layout-phone .tabbar-item:focus-visible::before {
+  opacity: 0.55;
+  transform: scale(1);
+}
+
+.app.platform-android.layout-phone .tabbar-item:active::before {
+  opacity: 0.68;
+}
+
+.app.platform-android.layout-phone .tabbar-item.active {
+  background: var(--android-primary-container);
+  border-color: transparent;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--border-accent) 64%, transparent),
+    0 8px 18px rgba(0, 0, 0, 0.26);
+  color: var(--text-strong);
+}
+
+.app.platform-android.layout-phone .tabbar-item.active::before {
+  opacity: 0.35;
+  transform: scale(1);
+}
+
+.app.platform-android.layout-phone .tabbar-icon-wrap {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--android-shape-full);
+  transition:
+    transform 220ms cubic-bezier(0.2, 0, 0, 1),
+    background-color 220ms ease;
+}
+
+.app.platform-android.layout-phone .tabbar-icon-wrap::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  width: 22px;
+  height: 3px;
+  border-radius: var(--android-shape-full);
+  background: color-mix(in srgb, var(--border-accent) 80%, #cce6ff 20%);
+  opacity: 0;
+  transform: translateX(-50%) scaleX(0.25);
+  transform-origin: center;
+  transition:
+    transform 220ms cubic-bezier(0.2, 0, 0, 1),
+    opacity 220ms ease;
+}
+
+.app.platform-android.layout-phone .tabbar-item.active .tabbar-icon-wrap {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--surface-active) 78%, transparent);
+}
+
+.app.platform-android.layout-phone .tabbar-item.active .tabbar-icon-wrap::after {
+  opacity: 1;
+  transform: translateX(-50%) scaleX(1);
+}
+
+.app.platform-android.layout-phone .tabbar-item:not(.active) .tabbar-icon-wrap {
+  transform: translateY(1px);
+}
+
+.app.platform-android.layout-phone .tabbar-label {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  transition:
+    transform 180ms ease,
+    color 180ms ease;
+}
+
+.app.platform-android.layout-phone .tabbar-item.active .tabbar-label {
+  transform: translateY(-0.5px);
+}
+
+.app.platform-android.layout-phone .composer {
+  border-top-color: var(--android-outline);
+  background: color-mix(in srgb, var(--surface-composer) 86%, var(--surface-topbar) 14%);
+  backdrop-filter: blur(16px) saturate(1.02);
+}
+
+.app.platform-android.layout-phone .composer-input {
+  border-radius: var(--android-shape-xl);
+  border: 1px solid var(--android-outline);
+  background: var(--android-tonal-surface);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.app.platform-android.layout-phone .composer-input:focus-within {
+  border-color: var(--android-outline-strong);
+  box-shadow: var(--android-focus-ring);
+}
+
+.app.platform-android.layout-phone .composer-action,
+.app.platform-android.layout-phone .composer-attach {
+  border-radius: 12px;
+  border-color: transparent;
+  background: color-mix(in srgb, var(--surface-control) 72%, var(--surface-card-muted) 28%);
+}
+
+.app.platform-android.layout-phone .composer-action:hover,
+.app.platform-android.layout-phone .composer-attach:hover {
+  background: var(--android-tonal-surface-hover);
+}
+
+.app.platform-android.layout-phone .workspace-row,
+.app.platform-android.layout-phone .worktree-row,
+.app.platform-android.layout-phone .thread-row {
+  border-radius: 18px;
+}
+
+.app.platform-android.layout-phone .thread-row.active {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--android-primary-container) 80%, var(--surface-card) 20%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-accent) 72%, transparent);
+}
+
+.app.platform-android.layout-phone .mobile-setup-wizard-card,
+.app.platform-android.layout-tablet .mobile-setup-wizard-card {
+  border-radius: 24px;
+  border-color: var(--android-outline);
+  background: color-mix(in srgb, var(--surface-context-core) 90%, #0a1320 10%);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.34);
+}
+
+.app.platform-android.layout-phone .mobile-setup-wizard-header,
+.app.platform-android.layout-tablet .mobile-setup-wizard-header {
+  padding: 18px 18px 10px;
+}
+
+.app.platform-android.layout-phone .mobile-setup-wizard-body,
+.app.platform-android.layout-tablet .mobile-setup-wizard-body {
+  padding: 8px 18px 18px;
+  gap: 9px;
+}
+
+.app.platform-android.layout-phone .mobile-setup-wizard-kicker,
+.app.platform-android.layout-tablet .mobile-setup-wizard-kicker {
+  border-color: var(--android-outline);
+  background: color-mix(in srgb, var(--surface-card-muted) 90%, #0f1c2f 10%);
+  color: var(--text-strong);
+}
+
+.app.platform-android.layout-phone .mobile-setup-wizard-title,
+.app.platform-android.layout-tablet .mobile-setup-wizard-title {
+  font-size: clamp(24px, 4.8vw, 30px);
+  line-height: 1.18;
+}
+
+.app.platform-android.layout-phone .mobile-setup-wizard-subtitle,
+.app.platform-android.layout-tablet .mobile-setup-wizard-subtitle {
+  color: var(--text-subtle);
+  font-size: 13px;
+}
+
+.app.platform-android.layout-phone .mobile-setup-wizard-label,
+.app.platform-android.layout-tablet .mobile-setup-wizard-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.app.platform-android.layout-phone .mobile-setup-wizard-input,
+.app.platform-android.layout-tablet .mobile-setup-wizard-input,
+.app.platform-android.layout-phone .settings-input,
+.app.platform-android.layout-tablet .settings-input {
+  border-radius: var(--android-shape-md);
+  border-color: var(--android-outline);
+  background: var(--android-tonal-surface);
+}
+
+.app.platform-android.layout-phone .mobile-setup-wizard-action,
+.app.platform-android.layout-tablet .mobile-setup-wizard-action {
+  min-height: 46px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.app.platform-android.layout-phone .mobile-setup-wizard-status,
+.app.platform-android.layout-tablet .mobile-setup-wizard-status {
+  border-radius: 12px;
+  border-color: color-mix(in srgb, #7fd3b2 45%, var(--android-outline) 55%);
+  background: color-mix(in srgb, #7fd3b2 16%, var(--surface-card) 84%);
+}
+
+.app.platform-android.layout-phone .mobile-setup-wizard-status-error,
+.app.platform-android.layout-tablet .mobile-setup-wizard-status-error {
+  border-color: color-mix(in srgb, #ff8a8a 55%, var(--android-outline) 45%);
+  background: color-mix(in srgb, #ff8a8a 14%, var(--surface-card) 86%);
+  color: #ffd0d0;
+}
+
+.app.platform-android.layout-phone .mobile-setup-wizard-hint,
+.app.platform-android.layout-tablet .mobile-setup-wizard-hint {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.app.platform-android.layout-phone .mobile-setup-wizard-input:focus,
+.app.platform-android.layout-tablet .mobile-setup-wizard-input:focus,
+.app.platform-android.layout-phone .settings-input:focus,
+.app.platform-android.layout-tablet .settings-input:focus {
+  border-color: var(--android-outline-strong);
+  box-shadow: var(--android-focus-ring);
+}
+
+.app.platform-android.layout-phone .tabbar-item:focus-visible,
+.app.platform-android.layout-phone .composer-action:focus-visible,
+.app.platform-android.layout-phone .composer-attach:focus-visible,
+.app.platform-android.layout-phone .workspace-row:focus-visible,
+.app.platform-android.layout-phone .worktree-row:focus-visible,
+.app.platform-android.layout-phone .thread-row:focus-visible {
+  outline: none;
+  box-shadow: var(--android-focus-ring);
+}
+
+.app.platform-android.layout-phone .home {
+  max-width: min(860px, 100%);
+  padding: 16px 12px calc(80px + env(safe-area-inset-bottom));
+  gap: 12px;
+}
+
+.app.platform-android.layout-phone .home-surface {
+  border-radius: 18px;
+  border: 1px solid var(--android-outline);
+  background: color-mix(in srgb, var(--surface-card) 94%, #07101d 6%);
+  box-shadow: 0 4px 12px rgba(2, 8, 18, 0.24);
+}
+
+.app.platform-android.layout-phone .home-hero-card {
+  border-color: var(--android-outline-strong);
+  background: color-mix(in srgb, var(--surface-card-strong) 92%, #0a1422 8%);
+  padding: 16px 14px;
+  gap: 12px;
+}
+
+.app.platform-android.layout-phone .home-hero-eyebrow {
+  color: color-mix(in srgb, var(--text-faint) 82%, #d8ecff 18%);
+  font-weight: 600;
+}
+
+.app.platform-android.layout-phone .home-title {
+  font-size: clamp(26px, 6vw, 32px);
+  letter-spacing: -0.01em;
+  color: var(--text-strong);
+}
+
+.app.platform-android.layout-phone .home-subtitle {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-subtle);
+}
+
+.app.platform-android.layout-phone .home-hero-stats {
+  gap: 8px;
+}
+
+.app.platform-android.layout-phone .home-hero-stat {
+  border-radius: 12px;
+  border-color: var(--android-outline);
+  background: color-mix(in srgb, var(--surface-card-muted) 90%, #0c1730 10%);
+}
+
+.app.platform-android.layout-phone .home-hero-stat-label {
+  color: var(--text-faint);
+  font-size: 10px;
+}
+
+.app.platform-android.layout-phone .home-hero-stat-value {
+  color: var(--text-strong);
+  font-size: 14px;
+}
+
+.app.platform-android.layout-phone .home-hero-meta {
+  font-size: 12px;
+  color: var(--text-subtle);
+}
+
+.app.platform-android.layout-phone .home-latest,
+.app.platform-android.layout-phone .home-usage {
+  padding: 14px 12px;
+  gap: 10px;
+}
+
+.app.platform-android.layout-phone .home-latest-header {
+  align-items: flex-start;
+}
+
+.app.platform-android.layout-phone .home-latest-label,
+.app.platform-android.layout-phone .home-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+}
+
+.app.platform-android.layout-phone .home-latest-subtitle,
+.app.platform-android.layout-phone .home-section-meta {
+  color: var(--text-subtle);
+}
+
+.app.platform-android.layout-phone .home-latest-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.app.platform-android.layout-phone .home-latest-card {
+  border-radius: 14px;
+  border: 1px solid var(--android-outline);
+  background: color-mix(in srgb, var(--surface-card) 92%, #0b1322 8%);
+  box-shadow: 0 4px 10px rgba(2, 8, 18, 0.2);
+  padding: 11px;
+}
+
+.app.platform-android.layout-phone .home-latest-card::after {
+  opacity: 0;
+}
+
+.app.platform-android.layout-phone .home-latest-card-button:hover {
+  transform: none;
+  box-shadow: 0 6px 12px rgba(3, 12, 30, 0.24);
+}
+
+.app.platform-android.layout-phone .home-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+}
+
+.app.platform-android.layout-phone .home-button {
+  min-height: 48px;
+  border-radius: 12px;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  padding: 10px 10px;
+}
+
+.app.platform-android.layout-phone .home-actions .home-button.primary {
+  border: 1px solid var(--android-outline-strong);
+}
+
+.app.platform-android.layout-phone .home-actions .home-button.secondary {
+  border: 1px solid var(--android-outline);
+}
+
+.app.platform-android.layout-phone .home-usage-controls {
+  gap: 10px;
+}
+
+.app.platform-android.layout-phone .home-usage-select-wrap,
+.app.platform-android.layout-phone .home-usage-toggle {
+  border-color: var(--android-outline);
+  background: color-mix(in srgb, var(--surface-card-strong) 90%, #0c1730 10%);
+}
+
+.app.platform-android.layout-phone .home-usage-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.app.platform-android.layout-phone .home-usage-card {
+  border-radius: 14px;
+  border-color: var(--android-outline);
+  background: color-mix(in srgb, var(--surface-card) 92%, #0b1324 8%);
+  box-shadow: 0 4px 10px rgba(2, 10, 25, 0.2);
+  min-height: 90px;
+}
+
+.app.platform-android.layout-phone .home-usage-number {
+  font-size: 22px;
+}
+
+.app.platform-android.layout-phone .home-usage-chart-card {
+  border-radius: 14px;
+  border: 1px solid var(--android-outline);
+  background: color-mix(in srgb, var(--surface-card) 92%, #0a1322 8%);
+}
+
+.app.platform-android.layout-phone .home-usage-model-chip {
+  border-radius: 10px;
+  border-color: var(--android-outline);
+  background: color-mix(in srgb, var(--surface-card-muted) 92%, #101f3b 8%);
+}
+
+.app.platform-android.layout-phone .home-usage-refresh:focus-visible,
+.app.platform-android.layout-phone .home-usage-toggle-button:focus-visible,
+.app.platform-android.layout-phone .home-latest-card-button:focus-visible {
+  outline: none;
+  box-shadow: var(--android-focus-ring);
+}
+
+.app.platform-android.layout-phone .home-hero-stat-value,
+.app.platform-android.layout-phone .home-latest-project-name,
+.app.platform-android.layout-phone .home-usage-number {
+  color: var(--text-strong);
+}
+
+@media (max-width: 430px) {
+  .app.platform-android.layout-phone .home-actions,
+  .app.platform-android.layout-phone .home-usage-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

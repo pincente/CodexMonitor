@@ -33,7 +33,10 @@
     "pretauri:dev:win": "npm run sync:material-icons",
     "tauri:dev:win": "npm run doctor:win && tauri dev --config src-tauri/tauri.windows.conf.json",
     "pretauri:build:win": "npm run sync:material-icons",
-    "tauri:build:win": "npm run doctor:win && tauri build --config src-tauri/tauri.windows.conf.json"
+    "tauri:build:win": "npm run doctor:win && tauri build --config src-tauri/tauri.windows.conf.json",
+    "tauri:android:init": "npm run doctor:strict && tauri android init --ci",
+    "tauri:run:android:tv": "./scripts/build_run_android_tv.sh",
+    "tauri:dev:android:tv": "./scripts/build_run_android_tv.sh --dev"
   },
   "dependencies": {
     "@pierre/diffs": "^1.0.6",

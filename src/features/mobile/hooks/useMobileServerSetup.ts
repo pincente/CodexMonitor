@@ -18,12 +18,65 @@ type UseMobileServerSetupResult = {
   handleMobileConnectSuccess: () => Promise<void>;
 };
 
+type NormalizedMobileRemoteDrafts = {
+  host: string;
+  token: string | null;
+  hostWasAutoCorrected: boolean;
+};
+
+function hasValidTrailingPort(value: string): boolean {
+  const match = value.match(/:(\d+)$/);
+  if (!match) {
+    return false;
+  }
+  const parsedPort = Number.parseInt(match[1], 10);
+  return Number.isFinite(parsedPort) && parsedPort >= 1 && parsedPort <= 65535;
+}
+
+export function normalizeMobileRemoteDrafts(
+  hostDraft: string,
+  tokenDraft: string,
+): NormalizedMobileRemoteDrafts {
+  const token = tokenDraft.trim();
+  const normalizedToken = token.length > 0 ? token : null;
+  const trimmedHost = hostDraft.trim();
+  if (!normalizedToken) {
+    return {
+      host: trimmedHost,
+      token: null,
+      hostWasAutoCorrected: false,
+    };
+  }
+
+  const hostAlreadyHasValidPort = hasValidTrailingPort(trimmedHost);
+  if (
+    !hostAlreadyHasValidPort &&
+    trimmedHost.endsWith(normalizedToken) &&
+    trimmedHost.length > normalizedToken.length
+  ) {
+    const candidateHost = trimmedHost.slice(0, -normalizedToken.length).trim();
+    if (hasValidTrailingPort(candidateHost)) {
+      return {
+        host: candidateHost,
+        token: normalizedToken,
+        hostWasAutoCorrected: true,
+      };
+    }
+  }
+
+  return {
+    host: trimmedHost,
+    token: normalizedToken,
+    hostWasAutoCorrected: false,
+  };
+}
+
 function isRemoteServerConfigured(settings: AppSettings): boolean {
   return Boolean(settings.remoteBackendToken?.trim()) && Boolean(settings.remoteBackendHost.trim());
 }
 
 function defaultMobileSetupMessage(): string {
-  return "Enter your desktop Tailscale host and token, then run Connect & test.";
+  return "Enter host as <tailnet-host>:4732, set your token in the token field, then run Connect & test.";
 }
 
 function markActiveRemoteBackendConnected(settings: AppSettings, connectedAtMs: number): AppSettings {
@@ -129,8 +182,13 @@ export function useMobileServerSetup({
         return;
       }
 
-      const nextHost = remoteHostDraft.trim();
-      const nextToken = remoteTokenDraft.trim() ? remoteTokenDraft.trim() : null;
+      const normalizedDrafts = normalizeMobileRemoteDrafts(remoteHostDraft, remoteTokenDraft);
+      const nextHost = normalizedDrafts.host;
+      const nextToken = normalizedDrafts.token;
+
+      if (normalizedDrafts.hostWasAutoCorrected && nextHost !== remoteHostDraft) {
+        setRemoteHostDraft(nextHost);
+      }
 
       if (!nextHost || !nextToken) {
         setMobileServerReady(false);

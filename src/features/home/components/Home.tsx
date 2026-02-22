@@ -133,6 +133,14 @@ export function Home({
   const usageTotals = localUsageSnapshot?.totals ?? null;
   const usageDays = localUsageSnapshot?.days ?? [];
   const last7Days = usageDays.slice(-7);
+  const activeAgentRuns = latestAgentRuns.filter((run) => run.isProcessing).length;
+  const latestActivityLabel =
+    latestAgentRuns.length > 0
+      ? `Latest ${formatRelativeTime(latestAgentRuns[0].timestamp)}`
+      : "No recent activity";
+  const scopedWorkspaceLabel =
+    usageWorkspaceId &&
+    usageWorkspaceOptions.find((workspace) => workspace.id === usageWorkspaceId)?.label;
   const last7AgentMs = last7Days.reduce(
     (total, day) => total + (day.agentTimeMs ?? 0),
     0,
@@ -173,18 +181,60 @@ export function Home({
     : null;
   const showUsageSkeleton = isLoadingLocalUsage && !localUsageSnapshot;
   const showUsageEmpty = !isLoadingLocalUsage && !localUsageSnapshot;
+  const workspaceScopeLabel = scopedWorkspaceLabel ?? "All workspaces";
 
   return (
     <div className="home">
-      <div className="home-hero">
+      <div className="home-hero home-surface home-hero-card">
+        <div className="home-hero-eyebrow">Home</div>
         <div className="home-title">Codex Monitor</div>
         <div className="home-subtitle">
-          Orchestrate agents across your local projects.
+          Quick access to projects, recent agent activity, and usage.
         </div>
+        <div className="home-hero-stats" role="list" aria-label="Home summary">
+          <div className="home-hero-stat" role="listitem">
+            <span className="home-hero-stat-label">Workspace</span>
+            <span className="home-hero-stat-value">{workspaceScopeLabel}</span>
+          </div>
+          <div className="home-hero-stat" role="listitem">
+            <span className="home-hero-stat-label">Running</span>
+            <span className="home-hero-stat-value">{formatCount(activeAgentRuns)}</span>
+          </div>
+        </div>
+        <div className="home-hero-meta">{latestActivityLabel}</div>
       </div>
-      <div className="home-latest">
+      <div className="home-actions home-surface">
+        <button
+          className="home-button primary"
+          onClick={onAddWorkspace}
+          data-tauri-drag-region="false"
+        >
+          <span className="home-icon" aria-hidden>
+            +
+          </span>
+          Add workspace
+        </button>
+        <button
+          className="home-button secondary"
+          onClick={onOpenSettings}
+          data-tauri-drag-region="false"
+        >
+          <span className="home-icon" aria-hidden>
+            <Settings size={18} />
+          </span>
+          Open settings
+        </button>
+      </div>
+      <div className="home-latest home-surface">
         <div className="home-latest-header">
-          <div className="home-latest-label">Latest agents</div>
+          <div>
+            <div className="home-latest-label">Latest agents</div>
+            <div className="home-latest-subtitle">
+              {activeAgentRuns > 0
+                ? `${formatCount(activeAgentRuns)} currently running`
+                : latestActivityLabel}
+            </div>
+          </div>
         </div>
         {latestAgentRuns.length > 0 ? (
           <div className="home-latest-grid">
@@ -237,29 +287,7 @@ export function Home({
           </div>
         )}
       </div>
-      <div className="home-actions">
-        <button
-          className="home-button primary"
-          onClick={onAddWorkspace}
-          data-tauri-drag-region="false"
-        >
-          <span className="home-icon" aria-hidden>
-            +
-          </span>
-          Add Workspaces
-        </button>
-        <button
-          className="home-button secondary"
-          onClick={onOpenSettings}
-          data-tauri-drag-region="false"
-        >
-          <span className="home-icon" aria-hidden>
-            <Settings size={18} />
-          </span>
-          Settings
-        </button>
-      </div>
-      <div className="home-usage">
+      <div className="home-usage home-surface">
         <div className="home-section-header">
           <div className="home-section-title">Usage snapshot</div>
           <div className="home-section-meta-row">

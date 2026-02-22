@@ -666,6 +666,10 @@
   padding-left: 6px;
 }
 
+.workspace-row:focus-visible {
+  outline: 2px solid var(--border-accent);
+  outline-offset: 1px;
+}
 
 .workspace-name {
   font-weight: 600;
@@ -689,10 +693,22 @@
   color: var(--text-muted);
   align-self: center;
   flex-shrink: 0;
+  font: inherit;
+  line-height: 1.1;
   padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid var(--border-quiet);
+  background: transparent;
+  cursor: pointer;
   -webkit-app-region: no-drag;
+}
+
+.connect:hover,
+.connect:focus-visible {
+  color: var(--text-strong);
+  border-color: var(--border-stronger);
+  background: var(--surface-hover);
+  outline: none;
 }
 
 .workspace-add {
@@ -858,13 +874,17 @@
   gap: 6px;
   padding: 4px 10px 4px calc(6px + var(--thread-indent, 0px));
   border-radius: 6px;
+  border: none;
   color: var(--text-quiet);
   font-size: 12px;
+  font-weight: 400;
   text-align: left;
   cursor: pointer;
   -webkit-app-region: no-drag;
   min-width: 0;
   position: relative;
+  background: transparent;
+  box-shadow: none;
 }
 
 .thread-status {
@@ -910,11 +930,18 @@
 .thread-row:hover {
   background: var(--surface-hover);
   color: var(--text-strong);
+  transform: none;
+  box-shadow: none;
 }
 
 .thread-row.active {
   background: var(--surface-active);
   color: var(--text-strong);
+}
+
+.thread-row:focus-visible {
+  outline: 2px solid var(--border-accent);
+  outline-offset: 1px;
 }
 
 .thread-name {
@@ -977,6 +1004,12 @@
 
 .thread-more:hover {
   color: var(--text-stronger);
+}
+
+.thread-more:focus-visible {
+  outline: 2px solid var(--border-accent);
+  outline-offset: 1px;
+  border-radius: 6px;
 }
 
 .thread-list-separator {
@@ -1085,6 +1118,11 @@
 
 .worktree-row:hover {
   background: var(--surface-card);
+}
+
+.worktree-row:focus-visible {
+  outline: 2px solid var(--border-accent);
+  outline-offset: 1px;
 }
 
 .worktree-row.deleting:hover {
@@ -1361,6 +1399,169 @@
     background-position: -200% 0;
   }
 }
+
+@media (min-width: 900px) {
+  .app.layout-phone .sidebar {
+    --sidebar-padding: 26px;
+    padding: 30px var(--sidebar-padding) 76px;
+    gap: 12px;
+    background:
+      radial-gradient(1200px 560px at -8% -15%, rgba(119, 186, 255, 0.2), transparent 58%),
+      radial-gradient(900px 420px at 114% 6%, rgba(86, 228, 178, 0.16), transparent 56%),
+      color-mix(in srgb, var(--surface-sidebar-opaque) 90%, #040812 10%);
+    border-right-color: color-mix(in srgb, var(--border-subtle) 70%, #87bcff 30%);
+  }
+
+  .app.layout-phone .sidebar-header {
+    gap: 16px;
+  }
+
+  .app.layout-phone .sidebar-header .subtitle {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
+  .app.layout-phone .sidebar-title-add,
+  .app.layout-phone .sidebar-sort-toggle,
+  .app.layout-phone .sidebar-search-toggle,
+  .app.layout-phone .sidebar-refresh-toggle,
+  .app.layout-phone .sidebar-corner-button {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--border-subtle) 74%, #7fb8ff 26%);
+    background: color-mix(in srgb, var(--surface-card-muted) 85%, #0e172b 15%);
+    color: var(--text-strong);
+  }
+
+  .app.layout-phone .sidebar-title-add:hover,
+  .app.layout-phone .sidebar-title-add:focus-visible,
+  .app.layout-phone .sidebar-sort-toggle:hover,
+  .app.layout-phone .sidebar-sort-toggle:focus-visible,
+  .app.layout-phone .sidebar-search-toggle:hover,
+  .app.layout-phone .sidebar-search-toggle:focus-visible,
+  .app.layout-phone .sidebar-refresh-toggle:hover,
+  .app.layout-phone .sidebar-refresh-toggle:focus-visible,
+  .app.layout-phone .sidebar-corner-button:hover,
+  .app.layout-phone .sidebar-corner-button:focus-visible {
+    background: color-mix(in srgb, var(--surface-hover) 75%, #122039 25%);
+    border-color: color-mix(in srgb, var(--border-accent) 70%, #cfe4ff 30%);
+  }
+
+  .app.layout-phone .workspace-group-label,
+  .app.layout-phone .worktree-header {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+  }
+
+  .app.layout-phone .workspace-group-content,
+  .app.layout-phone .worktree-list {
+    gap: 8px;
+  }
+
+  .app.layout-phone .workspace-row,
+  .app.layout-phone .worktree-row {
+    padding: 12px 10px;
+    border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--border-subtle) 78%, #8abfff 22%);
+    background: color-mix(in srgb, var(--surface-card-muted) 86%, #0f182a 14%);
+    transition:
+      background 0.18s ease,
+      border-color 0.18s ease,
+      box-shadow 0.2s ease,
+      transform 0.2s ease;
+  }
+
+  .app.layout-phone .workspace-row::before {
+    inset: 0;
+    border-radius: 14px;
+  }
+
+  .app.layout-phone .workspace-row:hover::before {
+    background: color-mix(in srgb, var(--surface-hover) 78%, #101d35 22%);
+  }
+
+  .app.layout-phone .workspace-row.active::before {
+    background: linear-gradient(
+      90deg,
+      #72b7ff 0,
+      #72b7ff 4px,
+      color-mix(in srgb, var(--surface-card) 84%, #101a2f 16%) 4px,
+      color-mix(in srgb, var(--surface-card) 84%, #101a2f 16%) 100%
+    );
+  }
+
+  .app.layout-phone .workspace-name {
+    font-size: 15px;
+  }
+
+  .app.layout-phone .connect {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-color: color-mix(in srgb, var(--border-quiet) 70%, #8abfff 30%);
+    background: color-mix(in srgb, var(--surface-card-muted) 80%, #15223d 20%);
+  }
+
+  .app.layout-phone .thread-list {
+    gap: 6px;
+  }
+
+  .app.layout-phone .thread-row {
+    min-height: 44px;
+    padding: 9px 12px 9px calc(10px + var(--thread-indent, 0px));
+    border-radius: 12px;
+    border: 1px solid transparent;
+    background: color-mix(in srgb, var(--surface-card-muted) 78%, #111b31 22%);
+    color: var(--text-stronger);
+    font-size: 13px;
+    transition:
+      background 0.18s ease,
+      border-color 0.18s ease,
+      box-shadow 0.2s ease,
+      transform 0.2s ease;
+  }
+
+  .app.layout-phone .thread-row:hover {
+    background: color-mix(in srgb, var(--surface-hover) 70%, #152646 30%);
+  }
+
+  .app.layout-phone .thread-row.active {
+    background: color-mix(in srgb, var(--surface-active) 74%, #13223d 26%);
+    border-color: color-mix(in srgb, var(--border-accent) 72%, #d3e7ff 28%);
+  }
+
+  .app.layout-phone .thread-more {
+    min-height: 34px;
+    padding: 6px 10px 6px 18px;
+    border-radius: 10px;
+    color: var(--text-muted);
+  }
+
+  .app.layout-phone .thread-more:hover {
+    background: color-mix(in srgb, var(--surface-hover) 74%, #14243f 26%);
+    color: var(--text-strong);
+  }
+
+  .app.layout-phone .worktree-row.active {
+    border-left: none;
+    padding-left: 10px;
+    box-shadow: inset 4px 0 0 #72b7ff;
+  }
+
+  .app.layout-phone .workspace-row:focus-visible,
+  .app.layout-phone .worktree-row:focus-visible,
+  .app.layout-phone .thread-row:focus-visible,
+  .app.layout-phone .thread-more:focus-visible,
+  .app.layout-phone .workspace-group-header.is-toggleable:focus-visible {
+    outline: none;
+    transform: translateX(2px) scale(1.01);
+    box-shadow:
+      0 0 0 3px rgba(121, 190, 255, 0.72),
+      0 14px 28px rgba(1, 8, 20, 0.42);
+  }
+}
+
 .app.reduced-transparency .sidebar {
   background: var(--surface-sidebar-opaque);
   backdrop-filter: none;
