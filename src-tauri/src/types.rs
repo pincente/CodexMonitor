@@ -533,6 +533,8 @@ pub(crate) struct AppSettings {
         rename = "commitMessagePrompt"
     )]
     pub(crate) commit_message_prompt: String,
+    #[serde(default, rename = "commitMessageModelId")]
+    pub(crate) commit_message_model_id: Option<String>,
     #[serde(
         default = "default_system_notifications_enabled",
         rename = "systemNotificationsEnabled"
@@ -544,11 +546,6 @@ pub(crate) struct AppSettings {
     )]
     pub(crate) subagent_system_notifications_enabled: bool,
     #[serde(
-        default = "default_experimental_collab_enabled",
-        rename = "experimentalCollabEnabled"
-    )]
-    pub(crate) experimental_collab_enabled: bool,
-    #[serde(
         default = "default_collaboration_modes_enabled",
         rename = "collaborationModesEnabled"
     )]
@@ -559,6 +556,11 @@ pub(crate) struct AppSettings {
         alias = "experimentalSteerEnabled"
     )]
     pub(crate) steer_enabled: bool,
+    #[serde(
+        default = "default_follow_up_message_behavior",
+        rename = "followUpMessageBehavior"
+    )]
+    pub(crate) follow_up_message_behavior: String,
     #[serde(
         default = "default_pause_queued_messages_when_response_required",
         rename = "pauseQueuedMessagesWhenResponseRequired"
@@ -900,16 +902,16 @@ Changes:\n{diff}"
         .to_string()
 }
 
-fn default_experimental_collab_enabled() -> bool {
-    false
-}
-
 fn default_collaboration_modes_enabled() -> bool {
     true
 }
 
 fn default_steer_enabled() -> bool {
     true
+}
+
+fn default_follow_up_message_behavior() -> String {
+    "queue".to_string()
 }
 
 fn default_pause_queued_messages_when_response_required() -> bool {
@@ -1149,9 +1151,10 @@ impl Default for AppSettings {
             preload_git_diffs: default_preload_git_diffs(),
             git_diff_ignore_whitespace_changes: default_git_diff_ignore_whitespace_changes(),
             commit_message_prompt: default_commit_message_prompt(),
-            experimental_collab_enabled: false,
+            commit_message_model_id: None,
             collaboration_modes_enabled: true,
             steer_enabled: true,
+            follow_up_message_behavior: default_follow_up_message_behavior(),
             pause_queued_messages_when_response_required:
                 default_pause_queued_messages_when_response_required(),
             unified_exec_enabled: true,
@@ -1313,6 +1316,7 @@ mod tests {
         assert!(settings.commit_message_prompt.contains("{diff}"));
         assert!(settings.collaboration_modes_enabled);
         assert!(settings.steer_enabled);
+        assert_eq!(settings.follow_up_message_behavior, "queue");
         assert!(settings.pause_queued_messages_when_response_required);
         assert!(settings.unified_exec_enabled);
         assert!(!settings.experimental_apps_enabled);

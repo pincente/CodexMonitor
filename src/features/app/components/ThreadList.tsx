@@ -1,21 +1,18 @@
-import type { CSSProperties, MouseEvent } from "react";
+import type { MouseEvent } from "react";
 
 import type { ThreadSummary } from "../../../types";
+import type { ThreadStatusById } from "../../../utils/threadStatus";
+import { ThreadRow } from "./ThreadRow";
 
-type ThreadStatusMap = Record<
-  string,
-  { isProcessing: boolean; hasUnread: boolean; isReviewing: boolean }
->;
-
-type ThreadRow = {
+type ThreadListRow = {
   thread: ThreadSummary;
   depth: number;
 };
 
 type ThreadListProps = {
   workspaceId: string;
-  pinnedRows: ThreadRow[];
-  unpinnedRows: ThreadRow[];
+  pinnedRows: ThreadListRow[];
+  unpinnedRows: ThreadListRow[];
   totalThreadRoots: number;
   isExpanded: boolean;
   nextCursor: string | null;
@@ -24,9 +21,10 @@ type ThreadListProps = {
   showLoadOlder?: boolean;
   activeWorkspaceId: string | null;
   activeThreadId: string | null;
-  threadStatusById: ThreadStatusMap;
+  threadStatusById: ThreadStatusById;
   pendingUserInputKeys?: Set<string>;
   getThreadTime: (thread: ThreadSummary) => string | null;
+  getThreadArgsBadge?: (workspaceId: string, threadId: string) => string | null;
   isThreadPinned: (workspaceId: string, threadId: string) => boolean;
   onToggleExpanded: (workspaceId: string) => void;
   onLoadOlderThreads: (workspaceId: string) => void;
@@ -54,6 +52,7 @@ export function ThreadList({
   threadStatusById,
   pendingUserInputKeys,
   getThreadTime,
+  getThreadArgsBadge,
   isThreadPinned,
   onToggleExpanded,
   onLoadOlderThreads,
@@ -61,73 +60,48 @@ export function ThreadList({
   onShowThreadMenu,
 }: ThreadListProps) {
   const indentUnit = nested ? 10 : 14;
-  const renderThreadRow = ({ thread, depth }: ThreadRow) => {
-    const relativeTime = getThreadTime(thread);
-    const indentStyle =
-      depth > 0
-        ? ({ "--thread-indent": `${depth * indentUnit}px` } as CSSProperties)
-        : undefined;
-    const status = threadStatusById[thread.id];
-    const hasPendingUserInput = Boolean(
-      pendingUserInputKeys?.has(`${workspaceId}:${thread.id}`),
-    );
-    const statusClass = hasPendingUserInput
-      ? "unread"
-      : status?.isReviewing
-      ? "reviewing"
-      : status?.isProcessing
-        ? "processing"
-        : status?.hasUnread
-          ? "unread"
-          : "ready";
-    const canPin = depth === 0;
-    const isPinned = canPin && isThreadPinned(workspaceId, thread.id);
-
-    return (
-      <button
-        type="button"
-        key={thread.id}
-        className={`thread-row ${
-          workspaceId === activeWorkspaceId && thread.id === activeThreadId
-            ? "active"
-            : ""
-        }`}
-        data-focus-kind="thread"
-        data-workspace-id={workspaceId}
-        data-thread-id={thread.id}
-        data-thread-depth={String(depth)}
-        style={indentStyle}
-        onClick={() => onSelectThread(workspaceId, thread.id)}
-        onContextMenu={(event) =>
-          onShowThreadMenu(event, workspaceId, thread.id, canPin)
-        }
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            onSelectThread(workspaceId, thread.id);
-          }
-        }}
-      >
-        <span className={`thread-status ${statusClass}`} aria-hidden />
-        {isPinned && <span className="thread-pin-icon" aria-label="Pinned">📌</span>}
-        <span className="thread-name">{thread.name}</span>
-        <div className="thread-meta">
-          {relativeTime && <span className="thread-time">{relativeTime}</span>}
-          <div className="thread-menu">
-            <div className="thread-menu-trigger" aria-hidden="true" />
-          </div>
-        </div>
-      </button>
-    );
-  };
 
   return (
     <div className={`thread-list${nested ? " thread-list-nested" : ""}`}>
-      {pinnedRows.map((row) => renderThreadRow(row))}
+      {pinnedRows.map(({ thread, depth }) => (
+        <ThreadRow
+          key={thread.id}
+          thread={thread}
+          depth={depth}
+          workspaceId={workspaceId}
+          indentUnit={indentUnit}
+          activeWorkspaceId={activeWorkspaceId}
+          activeThreadId={activeThreadId}
+          threadStatusById={threadStatusById}
+          pendingUserInputKeys={pendingUserInputKeys}
+          getThreadTime={getThreadTime}
+          getThreadArgsBadge={getThreadArgsBadge}
+          isThreadPinned={isThreadPinned}
+          onSelectThread={onSelectThread}
+          onShowThreadMenu={onShowThreadMenu}
+        />
+      ))}
       {pinnedRows.length > 0 && unpinnedRows.length > 0 && (
         <div className="thread-list-separator" aria-hidden="true" />
       )}
-      {unpinnedRows.map((row) => renderThreadRow(row))}
+      {unpinnedRows.map(({ thread, depth }) => (
+        <ThreadRow
+          key={thread.id}
+          thread={thread}
+          depth={depth}
+          workspaceId={workspaceId}
+          indentUnit={indentUnit}
+          activeWorkspaceId={activeWorkspaceId}
+          activeThreadId={activeThreadId}
+          threadStatusById={threadStatusById}
+          pendingUserInputKeys={pendingUserInputKeys}
+          getThreadTime={getThreadTime}
+          getThreadArgsBadge={getThreadArgsBadge}
+          isThreadPinned={isThreadPinned}
+          onSelectThread={onSelectThread}
+          onShowThreadMenu={onShowThreadMenu}
+        />
+      ))}
       {totalThreadRoots > 3 && (
         <button
           className="thread-more"

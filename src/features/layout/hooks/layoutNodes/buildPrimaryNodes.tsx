@@ -77,6 +77,7 @@ export function buildPrimaryNodes(options: LayoutNodesOptions): PrimaryLayoutNod
       unpinThread={options.unpinThread}
       isThreadPinned={options.isThreadPinned}
       getPinTimestamp={options.getPinTimestamp}
+      getThreadArgsBadge={options.getThreadArgsBadge}
       onRenameThread={options.onRenameThread}
       onDeleteWorkspace={options.onDeleteWorkspace}
       onDeleteWorktree={options.onDeleteWorktree}
@@ -123,7 +124,6 @@ export function buildPrimaryNodes(options: LayoutNodesOptions): PrimaryLayoutNod
   const composerNode = options.showComposer ? (
     <Composer
       onSend={options.onSend}
-      onQueue={options.onQueue}
       onStop={options.onStop}
       canStop={options.canStop}
       disabled={options.isReviewing}
@@ -131,11 +131,9 @@ export function buildPrimaryNodes(options: LayoutNodesOptions): PrimaryLayoutNod
       contextUsage={options.activeTokenUsage}
       queuedMessages={options.activeQueue}
       queuePausedReason={options.queuePausedReason}
-      sendLabel={
-        options.composerSendLabel ??
-        (options.isProcessing && !options.steerEnabled ? "Queue" : "Send")
-      }
-      steerEnabled={options.steerEnabled}
+      sendLabel={options.composerSendLabel ?? "Send"}
+      steerAvailable={options.steerAvailable}
+      followUpMessageBehavior={options.followUpMessageBehavior}
       isProcessing={options.isProcessing}
       draftText={options.draftText}
       onDraftChange={options.onDraftChange}
@@ -159,6 +157,9 @@ export function buildPrimaryNodes(options: LayoutNodesOptions): PrimaryLayoutNod
       selectedEffort={options.selectedEffort}
       onSelectEffort={options.onSelectEffort}
       reasoningSupported={options.reasoningSupported}
+      codexArgsOptions={options.codexArgsOptions}
+      selectedCodexArgsOverride={options.selectedCodexArgsOverride}
+      onSelectCodexArgsOverride={options.onSelectCodexArgsOverride}
       accessMode={options.accessMode}
       onSelectAccessMode={options.onSelectAccessMode}
       skills={options.skills}
@@ -230,8 +231,8 @@ export function buildPrimaryNodes(options: LayoutNodesOptions): PrimaryLayoutNod
 
   const homeNode = (
     <Home
-      onOpenSettings={options.onOpenSettings}
       onAddWorkspace={options.onAddWorkspace}
+      onAddWorkspaceFromUrl={options.onAddWorkspaceFromUrl}
       latestAgentRuns={options.latestAgentRuns}
       isLoadingLatestAgents={options.isLoadingLatestAgents}
       localUsageSnapshot={options.localUsageSnapshot}

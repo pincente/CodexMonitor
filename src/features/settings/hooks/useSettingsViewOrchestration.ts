@@ -121,6 +121,9 @@ export function useSettingsViewOrchestration({
     : isWindowsPlatform()
       ? "Windows"
       : "Meta";
+  const followUpShortcutLabel = isMacPlatform()
+    ? "Shift+Cmd+Enter"
+    : "Shift+Ctrl+Enter";
 
   const selectedDictationModel = useMemo(() => {
     return (
@@ -185,11 +188,6 @@ export function useSettingsViewOrchestration({
     onTestSystemNotification,
   });
 
-  const gitSectionProps = useSettingsGitSection({
-    appSettings,
-    onUpdateAppSettings,
-  });
-
   const serverSectionProps = useSettingsServerSection({
     appSettings,
     onUpdateAppSettings,
@@ -204,6 +202,12 @@ export function useSettingsViewOrchestration({
     onRunCodexUpdate,
     onUpdateWorkspaceCodexBin,
     onUpdateWorkspaceSettings,
+  });
+
+  const gitSectionProps = useSettingsGitSection({
+    appSettings,
+    onUpdateAppSettings,
+    models: codexSectionProps.defaultModels,
   });
 
   const featuresSectionProps = useSettingsFeaturesSection({
@@ -222,6 +226,7 @@ export function useSettingsViewOrchestration({
     composerSectionProps: {
       appSettings,
       optionKeyLabel,
+      followUpShortcutLabel,
       composerPresetLabels: COMPOSER_PRESET_LABELS,
       onComposerPresetChange: (
         preset: AppSettings["composerEditorPreset"],

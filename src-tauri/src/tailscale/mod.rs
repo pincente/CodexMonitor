@@ -26,17 +26,56 @@ use self::core as tailscale_core;
 #[cfg(any(target_os = "android", target_os = "ios"))]
 const UNSUPPORTED_MESSAGE: &str = "Tailscale integration is only available on desktop.";
 
+fn apply_tailscale_command_env(command: &mut tokio::process::Command) {
+    #[cfg(target_os = "macos")]
+    {
+        // The app-bundled Tailscale binary can fail with CLIError 3 when TERM is missing
+        // (typical for GUI-launched release apps). Force a sane terminal type.
+        let term = std::env::var("TERM").unwrap_or_else(|_| "xterm-256color".to_string());
+        command.env("TERM", term);
+    }
+}
+
+fn direct_tailscale_command(binary: &OsStr) -> tokio::process::Command {
+    let mut command = tokio_command(binary);
+    apply_tailscale_command_env(&mut command);
+    command
+}
+
 #[cfg(target_os = "macos")]
 fn tailscale_command(binary: &OsStr) -> tokio::process::Command {
     let mut command = tokio_command("/bin/launchctl");
     let uid = unsafe { libc::geteuid() };
     command.arg("asuser").arg(uid.to_string()).arg(binary);
+    apply_tailscale_command_env(&mut command);
     command
 }
 
 #[cfg(not(target_os = "macos"))]
 fn tailscale_command(binary: &OsStr) -> tokio::process::Command {
-    tokio_command(binary)
+    direct_tailscale_command(binary)
+}
+
+#[cfg(target_os = "macos")]
+async fn tailscale_output(binary: &OsStr, args: &[&str]) -> std::io::Result<Output> {
+    let primary = tailscale_command(binary).args(args).output().await;
+    match primary {
+        Ok(output) if output.status.success() => Ok(output),
+        Ok(output) => match direct_tailscale_command(binary).args(args).output().await {
+            Ok(fallback) if fallback.status.success() => Ok(fallback),
+            Ok(_) => Ok(output),
+            Err(_) => Ok(output),
+        },
+        Err(primary_err) => match direct_tailscale_command(binary).args(args).output().await {
+            Ok(fallback) => Ok(fallback),
+            Err(_) => Err(primary_err),
+        },
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+async fn tailscale_output(binary: &OsStr, args: &[&str]) -> std::io::Result<Output> {
+    tailscale_command(binary).args(args).output().await
 }
 
 fn trim_to_non_empty(value: Option<&str>) -> Option<String> {
@@ -46,22 +85,38 @@ fn trim_to_non_empty(value: Option<&str>) -> Option<String> {
         .map(str::to_string)
 }
 
+fn truncate_preview(value: &str, max_chars: usize) -> String {
+    let mut chars = value.chars();
+    let preview: String = chars.by_ref().take(max_chars).collect();
+    if chars.next().is_some() {
+        format!("{preview}…")
+    } else {
+        preview
+    }
+}
+
 fn tailscale_binary_candidates() -> Vec<OsString> {
     let mut candidates = vec![OsString::from("tailscale")];
 
     #[cfg(target_os = "macos")]
     {
+        candidates.push(OsString::from("/opt/homebrew/bin/tailscale"));
+        candidates.push(OsString::from("/usr/local/bin/tailscale"));
+        candidates.push(OsString::from("/usr/local/bin/Tailscale"));
         candidates.push(OsString::from(
             "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
         ));
-        candidates.push(OsString::from("/opt/homebrew/bin/tailscale"));
-        candidates.push(OsString::from("/usr/local/bin/tailscale"));
+        candidates.push(OsString::from(
+            "/Applications/Tailscale.app/Contents/MacOS/tailscale",
+        ));
     }
 
     #[cfg(target_os = "linux")]
     {
         candidates.push(OsString::from("/usr/bin/tailscale"));
         candidates.push(OsString::from("/usr/sbin/tailscale"));
+        candidates.push(OsString::from("/usr/local/bin/tailscale"));
+        candidates.push(OsString::from("/run/current-system/sw/bin/tailscale"));
         candidates.push(OsString::from("/snap/bin/tailscale"));
     }
 
@@ -89,20 +144,42 @@ fn missing_tailscale_message() -> String {
     }
 }
 
+fn looks_like_tailscale_version(stdout: &str) -> bool {
+    fn is_version_token(token: &str) -> bool {
+        let trimmed = token.trim().trim_start_matches('v');
+        let core = trimmed
+            .split_once('-')
+            .map(|(value, _)| value)
+            .unwrap_or(trimmed);
+        let parts = core.split('.');
+        let mut count = 0usize;
+        for part in parts {
+            if part.is_empty() || !part.chars().all(|ch| ch.is_ascii_digit()) {
+                return false;
+            }
+            count += 1;
+        }
+        count >= 2
+    }
+
+    stdout
+        .split(|ch: char| ch.is_whitespace() || matches!(ch, ',' | ':' | '(' | ')' | ';'))
+        .any(is_version_token)
+}
+
 async fn resolve_tailscale_binary() -> Result<Option<(OsString, Output)>, String> {
     let mut failures: Vec<String> = Vec::new();
     for binary in tailscale_binary_candidates() {
-        let output = tailscale_command(binary.as_os_str())
-            .arg("version")
-            .output()
-            .await;
+        let output = tailscale_output(binary.as_os_str(), &["version"]).await;
         match output {
             Ok(version_output) => {
-                if version_output.status.success() {
-                    return Ok(Some((binary, version_output)));
-                }
                 let stdout = trim_to_non_empty(std::str::from_utf8(&version_output.stdout).ok());
                 let stderr = trim_to_non_empty(std::str::from_utf8(&version_output.stderr).ok());
+                if version_output.status.success()
+                    && stdout.as_deref().is_some_and(looks_like_tailscale_version)
+                {
+                    return Ok(Some((binary, version_output)));
+                }
                 let detail = match (stdout, stderr) {
                     (Some(out), Some(err)) => format!("stdout: {out}; stderr: {err}"),
                     (Some(out), None) => format!("stdout: {out}"),
@@ -110,7 +187,7 @@ async fn resolve_tailscale_binary() -> Result<Option<(OsString, Output)>, String
                     (None, None) => "no output".to_string(),
                 };
                 failures.push(format!(
-                    "{}: tailscale version failed ({detail})",
+                    "{}: tailscale version failed or returned unexpected output ({detail})",
                     OsStr::new(&binary).to_string_lossy()
                 ));
             }
@@ -126,6 +203,21 @@ async fn resolve_tailscale_binary() -> Result<Option<(OsString, Output)>, String
             "Failed to run tailscale version from candidate paths: {}",
             failures.join(" | ")
         ))
+    }
+}
+
+fn degraded_tailscale_status(version: Option<String>, message: String) -> TailscaleStatus {
+    TailscaleStatus {
+        installed: true,
+        running: false,
+        version,
+        dns_name: None,
+        host_name: None,
+        tailnet_name: None,
+        ipv4: Vec::new(),
+        ipv6: Vec::new(),
+        suggested_remote_host: None,
+        message,
     }
 }
 
@@ -333,7 +425,13 @@ pub(crate) async fn tailscale_status() -> Result<TailscaleStatus, String> {
         ));
     }
 
-    let Some((tailscale_binary, version_output)) = resolve_tailscale_binary().await? else {
+    let resolved_tailscale_binary = match resolve_tailscale_binary().await {
+        Ok(result) => result,
+        Err(err) => {
+            return Ok(degraded_tailscale_status(None, err));
+        }
+    };
+    let Some((tailscale_binary, version_output)) = resolved_tailscale_binary else {
         return Ok(tailscale_core::unavailable_status(
             None,
             missing_tailscale_message(),
@@ -343,12 +441,16 @@ pub(crate) async fn tailscale_status() -> Result<TailscaleStatus, String> {
     let version = trim_to_non_empty(std::str::from_utf8(&version_output.stdout).ok())
         .and_then(|raw| raw.lines().next().map(str::trim).map(str::to_string));
 
-    let status_output = tailscale_command(tailscale_binary.as_os_str())
-        .arg("status")
-        .arg("--json")
-        .output()
-        .await
-        .map_err(|err| format!("Failed to run tailscale status --json: {err}"))?;
+    let status_output =
+        match tailscale_output(tailscale_binary.as_os_str(), &["status", "--json"]).await {
+            Ok(output) => output,
+            Err(err) => {
+                return Ok(degraded_tailscale_status(
+                    version,
+                    format!("Failed to run tailscale status --json: {err}"),
+                ));
+            }
+        };
 
     if !status_output.status.success() {
         let stderr_text = trim_to_non_empty(std::str::from_utf8(&status_output.stderr).ok())
@@ -367,28 +469,34 @@ pub(crate) async fn tailscale_status() -> Result<TailscaleStatus, String> {
         });
     }
 
-    let payload = std::str::from_utf8(&status_output.stdout)
-        .map_err(|err| format!("Invalid UTF-8 from tailscale status: {err}"))?;
+    let payload = match std::str::from_utf8(&status_output.stdout) {
+        Ok(value) => value,
+        Err(err) => {
+            return Ok(degraded_tailscale_status(
+                version,
+                format!("Invalid UTF-8 from tailscale status: {err}"),
+            ));
+        }
+    };
     let stderr_text = trim_to_non_empty(std::str::from_utf8(&status_output.stderr).ok());
     if payload.trim().is_empty() {
         let suffix = stderr_text
             .as_deref()
             .map(|value| format!(" stderr: {value}"))
             .unwrap_or_default();
-        return Err(format!(
-            "tailscale status --json returned empty output.{suffix}"
+        return Ok(degraded_tailscale_status(
+            version,
+            format!("tailscale status --json returned empty output.{suffix}"),
         ));
     }
-    match tailscale_core::status_from_json(version, payload) {
+    match tailscale_core::status_from_json(version.clone(), payload) {
         Ok(status) => Ok(status),
         Err(err) => {
             let trimmed_payload = payload.trim();
             let payload_preview = if trimmed_payload.is_empty() {
                 None
-            } else if trimmed_payload.len() > 200 {
-                Some(format!("{}…", &trimmed_payload[..200]))
             } else {
-                Some(trimmed_payload.to_string())
+                Some(truncate_preview(trimmed_payload, 200))
             };
             let mut details = Vec::new();
             if let Some(stderr) = stderr_text {
@@ -398,9 +506,12 @@ pub(crate) async fn tailscale_status() -> Result<TailscaleStatus, String> {
                 details.push(format!("stdout: {preview}"));
             }
             if details.is_empty() {
-                Err(err)
+                Ok(degraded_tailscale_status(version, err))
             } else {
-                Err(format!("{err} ({})", details.join("; ")))
+                Ok(degraded_tailscale_status(
+                    version,
+                    format!("{err} ({})", details.join("; ")),
+                ))
             }
         }
     }
@@ -409,8 +520,9 @@ pub(crate) async fn tailscale_status() -> Result<TailscaleStatus, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        daemon_listen_addr, ensure_listen_addr_available, parse_port_from_remote_host,
-        sync_tcp_daemon_listen_addr, tailscale_binary_candidates,
+        daemon_listen_addr, ensure_listen_addr_available, looks_like_tailscale_version,
+        parse_port_from_remote_host, sync_tcp_daemon_listen_addr, tailscale_binary_candidates,
+        truncate_preview,
     };
     use crate::types::{TcpDaemonState, TcpDaemonStatus};
 
@@ -422,11 +534,55 @@ mod tests {
 
         #[cfg(target_os = "macos")]
         {
+            let usr_local_index = candidates
+                .iter()
+                .position(|candidate| candidate == "/usr/local/bin/tailscale")
+                .expect("usr/local tailscale candidate missing");
+            let app_bundle_index = candidates
+                .iter()
+                .position(|candidate| {
+                    candidate == "/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+                })
+                .expect("app bundle tailscale candidate missing");
+            assert!(usr_local_index < app_bundle_index);
+
             assert!(candidates.iter().any(|candidate| {
                 candidate.to_string_lossy()
                     == "/Applications/Tailscale.app/Contents/MacOS/Tailscale"
             }));
+            assert!(candidates.iter().any(|candidate| {
+                candidate.to_string_lossy()
+                    == "/Applications/Tailscale.app/Contents/MacOS/tailscale"
+            }));
+            assert!(candidates
+                .iter()
+                .any(|candidate| { candidate.to_string_lossy() == "/usr/local/bin/Tailscale" }));
         }
+    }
+
+    #[test]
+    fn truncates_preview_without_utf8_boundary_panics() {
+        let sample = "é".repeat(300);
+        let preview = truncate_preview(&sample, 200);
+        assert_eq!(preview.chars().count(), 201);
+        assert!(preview.ends_with('…'));
+    }
+
+    #[test]
+    fn validates_tailscale_version_output() {
+        let output = "1.94.2\n  tailscale commit: 0a29cf18\n";
+        assert!(looks_like_tailscale_version(output));
+    }
+
+    #[test]
+    fn rejects_gui_error_as_version_output() {
+        let output = "The Tailscale GUI failed to start: The operation couldn’t be completed. (Tailscale.CLIError error 3.)";
+        assert!(!looks_like_tailscale_version(output));
+    }
+
+    #[test]
+    fn rejects_empty_version_output() {
+        assert!(!looks_like_tailscale_version(" \n\t "));
     }
 
     #[test]

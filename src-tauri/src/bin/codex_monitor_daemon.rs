@@ -233,6 +233,38 @@ impl DaemonState {
         .await
     }
 
+    async fn add_workspace_from_git_url(
+        &self,
+        url: String,
+        destination_path: String,
+        target_folder_name: Option<String>,
+        codex_bin: Option<String>,
+        client_version: String,
+    ) -> Result<WorkspaceInfo, String> {
+        let client_version = client_version.clone();
+        workspaces_core::add_workspace_from_git_url_core(
+            url,
+            destination_path,
+            target_folder_name,
+            codex_bin,
+            &self.workspaces,
+            &self.sessions,
+            &self.app_settings,
+            &self.storage_path,
+            move |entry, default_bin, codex_args, codex_home| {
+                spawn_with_client(
+                    self.event_sink.clone(),
+                    client_version.clone(),
+                    entry,
+                    default_bin,
+                    codex_args,
+                    codex_home,
+                )
+            },
+        )
+        .await
+    }
+
     async fn add_worktree(
         &self,
         parent_id: String,
@@ -498,6 +530,32 @@ impl DaemonState {
         .await
     }
 
+    async fn set_workspace_runtime_codex_args(
+        &self,
+        workspace_id: String,
+        codex_args: Option<String>,
+        client_version: String,
+    ) -> Result<workspaces_core::WorkspaceRuntimeCodexArgsResult, String> {
+        workspaces_core::set_workspace_runtime_codex_args_core(
+            workspace_id,
+            codex_args,
+            &self.workspaces,
+            &self.sessions,
+            &self.app_settings,
+            move |entry, default_bin, next_args, codex_home| {
+                spawn_with_client(
+                    self.event_sink.clone(),
+                    client_version.clone(),
+                    entry,
+                    default_bin,
+                    next_args,
+                    codex_home,
+                )
+            },
+        )
+        .await
+    }
+
     async fn get_app_settings(&self) -> AppSettings {
         settings_core::get_app_settings_core(&self.app_settings).await
     }
@@ -507,7 +565,11 @@ impl DaemonState {
             .await
     }
 
-    async fn set_codex_feature_flag(&self, feature_key: String, enabled: bool) -> Result<(), String> {
+    async fn set_codex_feature_flag(
+        &self,
+        feature_key: String,
+        enabled: bool,
+    ) -> Result<(), String> {
         codex_config::write_feature_enabled(feature_key.as_str(), enabled)
     }
 
@@ -789,7 +851,8 @@ impl DaemonState {
         cursor: Option<String>,
         limit: Option<u32>,
     ) -> Result<Value, String> {
-        codex_core::experimental_feature_list_core(&self.sessions, workspace_id, cursor, limit).await
+        codex_core::experimental_feature_list_core(&self.sessions, workspace_id, cursor, limit)
+            .await
     }
 
     async fn collaboration_mode_list(&self, workspace_id: String) -> Result<Value, String> {
@@ -933,8 +996,14 @@ impl DaemonState {
         visibility: String,
         branch: Option<String>,
     ) -> Result<Value, String> {
-        git_ui_core::create_github_repo_core(&self.workspaces, workspace_id, repo, visibility, branch)
-            .await
+        git_ui_core::create_github_repo_core(
+            &self.workspaces,
+            workspace_id,
+            repo,
+            visibility,
+            branch,
+        )
+        .await
     }
 
     async fn list_git_roots(
@@ -1162,7 +1231,11 @@ impl DaemonState {
         codex_aux_core::codex_doctor_core(&self.app_settings, codex_bin, codex_args).await
     }
 
-    async fn generate_commit_message(&self, workspace_id: String) -> Result<String, String> {
+    async fn generate_commit_message(
+        &self,
+        workspace_id: String,
+        commit_message_model_id: Option<String>,
+    ) -> Result<String, String> {
         let repo_root = git_ui_core::resolve_repo_root_for_workspace_core(
             &self.workspaces,
             workspace_id.clone(),
@@ -1178,6 +1251,7 @@ impl DaemonState {
             workspace_id,
             &diff,
             &commit_message_prompt,
+            commit_message_model_id.as_deref(),
             |workspace_id, thread_id| {
                 emit_background_thread_hide(&self.event_sink, workspace_id, thread_id);
             },
@@ -1248,13 +1322,6 @@ fn should_skip_dir(name: &str) -> bool {
 
 fn normalize_git_path(path: &str) -> String {
     path.replace('\\', "/")
-}
-
-fn parse_optional_u64(value: &Value, key: &str) -> Option<u64> {
-    match value {
-        Value::Object(map) => map.get(key).and_then(|value| value.as_u64()),
-        _ => None,
-    }
 }
 
 fn emit_background_thread_hide(event_sink: &DaemonEventSink, workspace_id: &str, thread_id: &str) {

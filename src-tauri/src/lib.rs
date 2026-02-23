@@ -78,9 +78,7 @@ pub fn run() {
             .unwrap_or(false)
             || std::env::var_os("WAYLAND_DISPLAY").is_some();
         let has_nvidia = std::path::Path::new("/proc/driver/nvidia/version").exists();
-        if is_wayland
-            && has_nvidia
-            && std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none()
+        if is_wayland && has_nvidia && std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none()
         {
             std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
         }
@@ -178,6 +176,7 @@ pub fn run() {
             workspaces::list_workspaces,
             workspaces::is_workspace_path_dir,
             workspaces::add_workspace,
+            workspaces::add_workspace_from_git_url,
             workspaces::add_clone,
             workspaces::add_worktree,
             workspaces::worktree_setup_status,
@@ -189,6 +188,7 @@ pub fn run() {
             workspaces::apply_worktree_changes,
             workspaces::update_workspace_settings,
             workspaces::update_workspace_codex_bin,
+            workspaces::set_workspace_runtime_codex_args,
             codex::start_thread,
             codex::send_user_message,
             codex::turn_steer,

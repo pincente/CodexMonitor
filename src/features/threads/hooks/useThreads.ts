@@ -21,7 +21,10 @@ import { useThreadSelectors } from "./useThreadSelectors";
 import { useThreadStatus } from "./useThreadStatus";
 import { useThreadUserInput } from "./useThreadUserInput";
 import { useThreadTitleAutogeneration } from "./useThreadTitleAutogeneration";
-import { setThreadName as setThreadNameService } from "@services/tauri";
+import {
+  archiveThread as archiveThreadService,
+  setThreadName as setThreadNameService,
+} from "@services/tauri";
 import {
   loadDetachedReviewLinks,
   makeCustomNameKey,
@@ -29,11 +32,16 @@ import {
   saveDetachedReviewLinks,
 } from "@threads/utils/threadStorage";
 import { getParentThreadIdFromSource } from "@threads/utils/threadRpc";
+import { getSubagentDescendantThreadIds } from "@threads/utils/subagentTree";
 
 type UseThreadsOptions = {
   activeWorkspace: WorkspaceInfo | null;
   onWorkspaceConnected: (id: string) => void;
   onDebug?: (entry: DebugEntry) => void;
+  ensureWorkspaceRuntimeCodexArgs?: (
+    workspaceId: string,
+    threadId: string | null,
+  ) => Promise<void>;
   model?: string | null;
   effort?: string | null;
   collaborationMode?: Record<string, unknown> | null;
@@ -51,10 +59,13 @@ function buildWorkspaceThreadKey(workspaceId: string, threadId: string) {
   return `${workspaceId}:${threadId}`;
 }
 
+const CASCADE_ARCHIVE_SKIP_TTL_MS = 120_000;
+
 export function useThreads({
   activeWorkspace,
   onWorkspaceConnected,
   onDebug,
+  ensureWorkspaceRuntimeCodexArgs,
   model,
   effort,
   collaborationMode,
@@ -94,11 +105,14 @@ export function useThreads({
   const detachedReviewCompletedNoticeRef = useRef<Set<string>>(new Set());
   const detachedReviewParentByChildRef = useRef<Record<string, string>>({});
   const subagentThreadByWorkspaceThreadRef = useRef<Record<string, true>>({});
+  const threadParentByIdRef = useRef(state.threadParentById);
+  const cascadeArchiveSkipRef = useRef<Record<string, number>>({});
   const detachedReviewLinksByWorkspaceRef = useRef(loadDetachedReviewLinks());
   planByThreadRef.current = state.planByThread;
   itemsByThreadRef.current = state.itemsByThread;
   threadsByWorkspaceRef.current = state.threadsByWorkspace;
   activeTurnIdByThreadRef.current = state.activeTurnIdByThread;
+  threadParentByIdRef.current = state.threadParentById;
   const { approvalAllowlistRef, handleApprovalDecision, handleApprovalRemember } =
     useThreadApprovals({ dispatch, onDebug });
   const { handleUserInputSubmit } = useThreadUserInput({ dispatch });
@@ -404,10 +418,75 @@ export function useThreads({
 
   const handleThreadArchived = useCallback(
     (workspaceId: string, threadId: string) => {
+      if (!workspaceId || !threadId) {
+        return;
+      }
       threadHandlers.onThreadArchived?.(workspaceId, threadId);
       unpinThread(workspaceId, threadId);
+
+      const skipKey = buildWorkspaceThreadKey(workspaceId, threadId);
+      const skipAt = cascadeArchiveSkipRef.current[skipKey] ?? null;
+      if (skipAt !== null) {
+        delete cascadeArchiveSkipRef.current[skipKey];
+        if (
+          skipAt > 0 &&
+          Date.now() - skipAt >= 0 &&
+          Date.now() - skipAt < CASCADE_ARCHIVE_SKIP_TTL_MS
+        ) {
+          return;
+        }
+      }
+
+      const descendants = getSubagentDescendantThreadIds({
+        rootThreadId: threadId,
+        threadParentById: threadParentByIdRef.current,
+        isSubagentThread: (candidateId) =>
+          isSubagentThread(workspaceId, candidateId),
+      });
+      if (descendants.length === 0) {
+        return;
+      }
+
+      onDebug?.({
+        id: `${Date.now()}-client-thread-archive-cascade`,
+        timestamp: Date.now(),
+        source: "client",
+        label: "thread/archive cascade",
+        payload: { workspaceId, rootThreadId: threadId, descendantCount: descendants.length },
+      });
+
+      const now = Date.now();
+      Object.entries(cascadeArchiveSkipRef.current).forEach(([key, timestamp]) => {
+        if (now - timestamp >= CASCADE_ARCHIVE_SKIP_TTL_MS) {
+          delete cascadeArchiveSkipRef.current[key];
+        }
+      });
+
+      void (async () => {
+        for (const descendantId of descendants) {
+          const descendantKey = buildWorkspaceThreadKey(workspaceId, descendantId);
+          cascadeArchiveSkipRef.current[descendantKey] = Date.now();
+          try {
+            await archiveThreadService(workspaceId, descendantId);
+          } catch (error) {
+            delete cascadeArchiveSkipRef.current[descendantKey];
+            onDebug?.({
+              id: `${Date.now()}-client-thread-archive-cascade-error`,
+              timestamp: Date.now(),
+              source: "error",
+              label: "thread/archive cascade error",
+              payload: {
+                workspaceId,
+                rootThreadId: threadId,
+                threadId: descendantId,
+                error: error instanceof Error ? error.message : String(error),
+              },
+            });
+          }
+        }
+      })();
     },
-    [threadHandlers, unpinThread],
+    [isSubagentThread, onDebug, threadHandlers, unpinThread],
   );
 
   const handleThreadUnarchived = useCallback(
@@ -439,7 +518,7 @@ export function useThreads({
   useAppServerEvents(handlers);
 
   const {
-    startThreadForWorkspace,
+    startThreadForWorkspace: startThreadForWorkspaceInternal,
     forkThreadForWorkspace,
     resumeThreadForWorkspace,
     refreshThread,
@@ -466,6 +545,77 @@ export function useThreads({
     onSubagentThreadDetected,
   });
 
+  const ensureWorkspaceRuntimeCodexArgsBestEffort = useCallback(
+    async (workspaceId: string, threadId: string | null, phase: string) => {
+      if (!ensureWorkspaceRuntimeCodexArgs) {
+        return;
+      }
+      try {
+        await ensureWorkspaceRuntimeCodexArgs(workspaceId, threadId);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        onDebug?.({
+          id: `${Date.now()}-client-thread-runtime-codex-args-sync-error`,
+          timestamp: Date.now(),
+          source: "error",
+          label: "thread/runtime-codex-args sync error",
+          payload: `${phase}: ${detail}`,
+        });
+      }
+    },
+    [ensureWorkspaceRuntimeCodexArgs, onDebug],
+  );
+
+  const getWorkspaceThreadIds = useCallback(
+    (workspaceId: string, includeThreadId?: string) => {
+      const visibleThreadIds = (state.threadsByWorkspace[workspaceId] ?? [])
+        .map((thread) => String(thread.id ?? "").trim())
+        .filter((threadId) => threadId.length > 0);
+      const hiddenThreadIds = Object.keys(
+        state.hiddenThreadIdsByWorkspace[workspaceId] ?? {},
+      );
+      const activeThreadIdForWorkspace =
+        state.activeThreadIdByWorkspace[workspaceId] ?? null;
+      const threadIds = new Set([...visibleThreadIds, ...hiddenThreadIds]);
+      if (activeThreadIdForWorkspace) {
+        threadIds.add(activeThreadIdForWorkspace);
+      }
+      if (includeThreadId) {
+        threadIds.add(includeThreadId);
+      }
+      return Array.from(threadIds);
+    },
+    [
+      state.activeThreadIdByWorkspace,
+      state.hiddenThreadIdsByWorkspace,
+      state.threadsByWorkspace,
+    ],
+  );
+
+  const hasProcessingThreadInWorkspace = useCallback(
+    (workspaceId: string, excludedThreadId?: string) =>
+      getWorkspaceThreadIds(workspaceId, excludedThreadId).some(
+        (candidateThreadId) =>
+          candidateThreadId !== excludedThreadId &&
+          Boolean(state.threadStatusById[candidateThreadId]?.isProcessing),
+      ),
+    [getWorkspaceThreadIds, state.threadStatusById],
+  );
+
+  const shouldPreflightRuntimeCodexArgsForSend = useCallback(
+    (workspaceId: string, threadId: string) =>
+      !hasProcessingThreadInWorkspace(workspaceId, threadId),
+    [hasProcessingThreadInWorkspace],
+  );
+
+  const startThreadForWorkspace = useCallback(
+    async (workspaceId: string, options?: { activate?: boolean }) => {
+      await ensureWorkspaceRuntimeCodexArgsBestEffort(workspaceId, null, "start");
+      return startThreadForWorkspaceInternal(workspaceId, options);
+    },
+    [ensureWorkspaceRuntimeCodexArgsBestEffort, startThreadForWorkspaceInternal],
+  );
+
   const startThread = useCallback(async () => {
     if (!activeWorkspaceId) {
       return null;
@@ -484,10 +634,21 @@ export function useThreads({
         return null;
       }
     } else if (!loadedThreadsRef.current[threadId]) {
+      await ensureWorkspaceRuntimeCodexArgsBestEffort(
+        activeWorkspace.id,
+        threadId,
+        "resume",
+      );
       await resumeThreadForWorkspace(activeWorkspace.id, threadId);
     }
     return threadId;
-  }, [activeWorkspace, activeThreadId, resumeThreadForWorkspace, startThreadForWorkspace]);
+  }, [
+    activeWorkspace,
+    activeThreadId,
+    ensureWorkspaceRuntimeCodexArgsBestEffort,
+    resumeThreadForWorkspace,
+    startThreadForWorkspace,
+  ]);
 
   const ensureThreadForWorkspace = useCallback(
     async (workspaceId: string) => {
@@ -502,6 +663,7 @@ export function useThreads({
           return null;
         }
       } else if (!loadedThreadsRef.current[threadId]) {
+        await ensureWorkspaceRuntimeCodexArgsBestEffort(workspaceId, threadId, "resume");
         await resumeThreadForWorkspace(workspaceId, threadId);
       }
       if (shouldActivate && currentActiveThreadId !== threadId) {
@@ -512,6 +674,7 @@ export function useThreads({
     [
       activeWorkspaceId,
       dispatch,
+      ensureWorkspaceRuntimeCodexArgsBestEffort,
       loadedThreadsRef,
       resumeThreadForWorkspace,
       startThreadForWorkspace,
@@ -525,6 +688,7 @@ export function useThreads({
     sendUserMessageToThread,
     startFork,
     startReview,
+    startUncommittedReview,
     startResume,
     startCompact,
     startApps,
@@ -560,6 +724,8 @@ export function useThreads({
     reviewDeliveryMode,
     steerEnabled,
     customPrompts,
+    ensureWorkspaceRuntimeCodexArgs,
+    shouldPreflightRuntimeCodexArgsForSend,
     threadStatusById: state.threadStatusById,
     activeTurnIdByThread: state.activeTurnIdByThread,
     rateLimitsByWorkspace: state.rateLimitsByWorkspace,
@@ -581,6 +747,19 @@ export function useThreads({
     registerDetachedReviewChild,
   });
 
+  const hasLocalThreadSnapshot = useCallback(
+    (threadId: string | null) => {
+      if (!threadId) {
+        return false;
+      }
+      return (
+        loadedThreadsRef.current[threadId] === true ||
+        (itemsByThreadRef.current[threadId]?.length ?? 0) > 0
+      );
+    },
+    [itemsByThreadRef, loadedThreadsRef],
+  );
+
   const setActiveThreadId = useCallback(
     (threadId: string | null, workspaceId?: string) => {
       const targetId = workspaceId ?? activeWorkspaceId;
@@ -599,10 +778,29 @@ export function useThreads({
         });
       }
       if (threadId) {
-        void resumeThreadForWorkspace(targetId, threadId);
+        void (async () => {
+          const hasLocalSnapshot = hasLocalThreadSnapshot(threadId);
+          if (hasLocalSnapshot) {
+            loadedThreadsRef.current[threadId] = true;
+            return;
+          }
+          const hasActiveTurnInWorkspace = hasProcessingThreadInWorkspace(targetId);
+          if (!hasActiveTurnInWorkspace) {
+            await ensureWorkspaceRuntimeCodexArgsBestEffort(targetId, threadId, "resume");
+          }
+          await resumeThreadForWorkspace(targetId, threadId);
+        })();
       }
     },
-    [activeWorkspaceId, resumeThreadForWorkspace, state.activeThreadIdByWorkspace],
+    [
+      activeWorkspaceId,
+      ensureWorkspaceRuntimeCodexArgsBestEffort,
+      hasLocalThreadSnapshot,
+      hasProcessingThreadInWorkspace,
+      loadedThreadsRef,
+      resumeThreadForWorkspace,
+      state.activeThreadIdByWorkspace,
+    ],
   );
 
   const removeThread = useCallback(
@@ -617,6 +815,7 @@ export function useThreads({
   return {
     activeThreadId,
     setActiveThreadId,
+    hasLocalThreadSnapshot,
     activeItems,
     approvals: state.approvals,
     userInputRequests: state.userInputRequests,
@@ -656,6 +855,7 @@ export function useThreads({
     sendUserMessageToThread,
     startFork,
     startReview,
+    startUncommittedReview,
     startResume,
     startCompact,
     startApps,
