@@ -2,6 +2,7 @@ import type {
   AccountSnapshot,
   RequestUserInputRequest,
   RateLimitSnapshot,
+  ThreadListOrganizeMode,
   ThreadListSortKey,
   ThreadSummary,
   WorkspaceInfo,
@@ -120,6 +121,8 @@ type SidebarProps = {
   pinnedThreadsVersion: number;
   threadListSortKey: ThreadListSortKey;
   onSetThreadListSortKey: (sortKey: ThreadListSortKey) => void;
+  threadListOrganizeMode: ThreadListOrganizeMode;
+  onSetThreadListOrganizeMode: (organizeMode: ThreadListOrganizeMode) => void;
   onRefreshAllThreads: () => void;
   activeWorkspaceId: string | null;
   activeThreadId: string | null;
@@ -180,6 +183,8 @@ export const Sidebar = memo(function Sidebar({
   pinnedThreadsVersion,
   threadListSortKey,
   onSetThreadListSortKey,
+  threadListOrganizeMode,
+  onSetThreadListOrganizeMode,
   onRefreshAllThreads,
   activeWorkspaceId,
   activeThreadId,
@@ -738,6 +743,8 @@ export const Sidebar = memo(function Sidebar({
         navigationSummary={navigationSummary}
         threadListSortKey={threadListSortKey}
         onSetThreadListSortKey={onSetThreadListSortKey}
+        threadListOrganizeMode={threadListOrganizeMode}
+        onSetThreadListOrganizeMode={onSetThreadListOrganizeMode}
         onRefreshAllThreads={onRefreshAllThreads}
         refreshDisabled={refreshDisabled || refreshInProgress}
         refreshInProgress={refreshInProgress}

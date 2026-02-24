@@ -53,6 +53,11 @@ type UseThreadsOptions = {
   customPrompts?: CustomPromptOption[];
   onMessageActivity?: () => void;
   threadSortKey?: ThreadListSortKey;
+  onThreadCodexMetadataDetected?: (
+    workspaceId: string,
+    threadId: string,
+    metadata: { modelId: string | null; effort: string | null },
+  ) => void;
 };
 
 function buildWorkspaceThreadKey(workspaceId: string, threadId: string) {
@@ -77,6 +82,7 @@ export function useThreads({
   customPrompts = [],
   onMessageActivity,
   threadSortKey = "updated_at",
+  onThreadCodexMetadataDetected,
 }: UseThreadsOptions) {
   const maxItemsPerThread =
     chatHistoryScrollbackItems === undefined
@@ -113,6 +119,8 @@ export function useThreads({
   threadsByWorkspaceRef.current = state.threadsByWorkspace;
   activeTurnIdByThreadRef.current = state.activeTurnIdByThread;
   threadParentByIdRef.current = state.threadParentById;
+  const rateLimitsByWorkspaceRef = useRef(state.rateLimitsByWorkspace);
+  rateLimitsByWorkspaceRef.current = state.rateLimitsByWorkspace;
   const { approvalAllowlistRef, handleApprovalDecision, handleApprovalRemember } =
     useThreadApprovals({ dispatch, onDebug });
   const { handleUserInputSubmit } = useThreadUserInput({ dispatch });
@@ -135,9 +143,15 @@ export function useThreads({
     itemsByThread: state.itemsByThread,
   });
 
+  const getCurrentRateLimits = useCallback(
+    (workspaceId: string) => rateLimitsByWorkspaceRef.current[workspaceId] ?? null,
+    [],
+  );
+
   const { refreshAccountRateLimits } = useThreadRateLimits({
     activeWorkspaceId,
     activeWorkspaceConnected: activeWorkspace?.connected,
+    getCurrentRateLimits,
     dispatch,
     onDebug,
   });
@@ -374,6 +388,7 @@ export function useThreads({
     activeThreadId,
     dispatch,
     planByThreadRef,
+    getCurrentRateLimits,
     getCustomName,
     isThreadHidden,
     markProcessing,
@@ -523,6 +538,7 @@ export function useThreads({
     resumeThreadForWorkspace,
     refreshThread,
     resetWorkspaceThreads,
+    listThreadsForWorkspaces,
     listThreadsForWorkspace,
     loadOlderThreadsForWorkspace,
     archiveThread,
@@ -532,6 +548,7 @@ export function useThreads({
     threadsByWorkspace: state.threadsByWorkspace,
     activeThreadIdByWorkspace: state.activeThreadIdByWorkspace,
     activeTurnIdByThread: state.activeTurnIdByThread,
+    threadParentById: state.threadParentById,
     threadListCursorByWorkspace: state.threadListCursorByWorkspace,
     threadStatusById: state.threadStatusById,
     threadSortKey,
@@ -543,6 +560,7 @@ export function useThreads({
     applyCollabThreadLinksFromThread,
     updateThreadParent,
     onSubagentThreadDetected,
+    onThreadCodexMetadataDetected,
   });
 
   const ensureWorkspaceRuntimeCodexArgsBestEffort = useCallback(
@@ -847,6 +865,7 @@ export function useThreads({
     startThread,
     startThreadForWorkspace,
     forkThreadForWorkspace,
+    listThreadsForWorkspaces,
     listThreadsForWorkspace,
     refreshThread,
     resetWorkspaceThreads,

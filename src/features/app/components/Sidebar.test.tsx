@@ -28,6 +28,8 @@ const baseProps = {
   pinnedThreadsVersion: 0,
   threadListSortKey: "updated_at" as const,
   onSetThreadListSortKey: vi.fn(),
+  threadListOrganizeMode: "by_project" as const,
+  onSetThreadListOrganizeMode: vi.fn(),
   onRefreshAllThreads: vi.fn(),
   activeWorkspaceId: null,
   activeThreadId: null,
