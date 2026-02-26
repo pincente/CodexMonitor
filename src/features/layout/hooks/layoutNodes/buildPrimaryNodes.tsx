@@ -110,6 +110,7 @@ export function buildPrimaryNodes(options: LayoutNodesOptions): PrimaryLayoutNod
       onPlanAccept={options.onPlanAccept}
       onPlanSubmitChanges={options.onPlanSubmitChanges}
       onOpenThreadLink={options.onOpenThreadLink}
+      onQuoteMessage={options.canInsertComposerText ? options.onInsertComposerText : undefined}
       isThinking={options.isProcessing}
       isLoadingMessages={
         options.activeThreadId
@@ -179,6 +180,7 @@ export function buildPrimaryNodes(options: LayoutNodesOptions): PrimaryLayoutNod
       dictationState={options.dictationState}
       dictationLevel={options.dictationLevel}
       onToggleDictation={options.onToggleDictation}
+      onCancelDictation={options.onCancelDictation}
       onOpenDictationSettings={options.onOpenDictationSettings}
       dictationTranscript={options.dictationTranscript}
       onDictationTranscriptHandled={options.onDictationTranscriptHandled}

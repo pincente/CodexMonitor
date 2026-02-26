@@ -81,6 +81,7 @@ import {
   SidebarCollapseButton,
   TitlebarExpandControls,
 } from "@/features/layout/components/SidebarToggleControls";
+import { WindowCaptionControls } from "@/features/layout/components/WindowCaptionControls";
 import { useUpdaterController } from "@app/hooks/useUpdaterController";
 import { useResponseRequiredNotificationsController } from "@app/hooks/useResponseRequiredNotificationsController";
 import { useErrorToasts } from "@/features/notifications/hooks/useErrorToasts";
@@ -197,6 +198,7 @@ function MainApp() {
     dictationHint,
     dictationReady,
     handleToggleDictation,
+    cancelDictation,
     clearDictationTranscript,
     clearDictationError,
     clearDictationHint,
@@ -1834,6 +1836,8 @@ function MainApp() {
     runPullRequestReview,
   } = usePullRequestReviewActions({
     activeWorkspace,
+    activeThreadId,
+    reviewDeliveryMode: appSettings.reviewDeliveryMode,
     pullRequest: selectedPullRequest,
     pullRequestDiffs: gitPullRequestDiffs,
     pullRequestComments: gitPullRequestComments,
@@ -2134,7 +2138,10 @@ function MainApp() {
     onDeleteWorktree: handleSidebarDeleteWorktree,
     onLoadOlderThreads: handleSidebarLoadOlderThreads,
     onReloadWorkspaceThreads: handleSidebarReloadWorkspaceThreads,
-    updaterState,
+    updaterState:
+      settingsOpen && settingsSection === "about"
+        ? { stage: "idle" as const }
+        : updaterState,
     onUpdate: startUpdate,
     onDismissUpdate: dismissUpdate,
     postUpdateNotice,
@@ -2439,6 +2446,7 @@ function MainApp() {
     dictationState,
     dictationLevel,
     onToggleDictation: handleToggleDictation,
+    onCancelDictation: cancelDictation,
     dictationTranscript,
     onDictationTranscriptHandled: (id) => {
       clearDictationTranscript(id);
@@ -2544,6 +2552,7 @@ function MainApp() {
       dictationState={dictationState}
       dictationLevel={dictationLevel}
       onToggleDictation={handleToggleDictation}
+      onCancelDictation={cancelDictation}
       onOpenDictationSettings={() => openSettings("dictation")}
       dictationError={dictationError}
       onDismissDictationError={clearDictationError}
@@ -2570,15 +2579,13 @@ function MainApp() {
   ) : null;
 
   const mainMessagesNode = showWorkspaceHome ? workspaceHomeNode : messagesNode;
-  const showCompactThreadConnectionIndicator =
-    showCompactCodexThreadActions && Boolean(activeThreadId) && activeItems.length > 0;
+  const showThreadConnectionIndicator =
+    Boolean(activeWorkspace) && appSettings.backendMode === "remote";
   const compactThreadConnectionState: "live" | "polling" | "disconnected" =
     !activeWorkspace?.connected
       ? "disconnected"
-      : appSettings.backendMode === "remote"
-        ? remoteThreadConnectionState
-        : "live";
-  const codexTopbarActionsNode = showCompactThreadConnectionIndicator ? (
+      : remoteThreadConnectionState;
+  const topbarActionsNode = showThreadConnectionIndicator ? (
     <span
       className={`compact-workspace-live-indicator ${
         compactThreadConnectionState === "live"
@@ -2614,8 +2621,9 @@ function MainApp() {
 
   return (
     <div className={`${appClassName}${isResizing ? " is-resizing" : ""}`} style={appStyle} ref={appRef}>
-      <div className="drag-strip" id="titlebar" data-tauri-drag-region />
+      <div className="drag-strip" id="titlebar" />
       <TitlebarExpandControls {...sidebarToggleProps} />
+      <WindowCaptionControls />
       {shouldLoadGitHubPanelData ? (
         <Suspense fallback={null}>
           <GitHubPanelData
@@ -2652,7 +2660,7 @@ function MainApp() {
         homeNode={homeNode}
         mainHeaderNode={mainHeaderNode}
         desktopTopbarLeftNode={desktopTopbarLeftNodeWithToggle}
-        codexTopbarActionsNode={codexTopbarActionsNode}
+        topbarActionsNode={topbarActionsNode}
         tabletNavNode={tabletNavNode}
         tabBarNode={tabBarNode}
         gitDiffPanelNode={gitDiffPanelNode}
